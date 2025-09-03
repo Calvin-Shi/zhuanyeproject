@@ -2,6 +2,22 @@ from rest_framework import serializers
 from .models import Movie, MovieTitle, Genre, Person, Source, Review, UserReview
 from django.contrib.auth.models import User
 
+class RegisterSerializer(serializers.ModelSerializer):
+    """用于用户注册的Serializer"""
+    class Meta:
+        model = User
+        fields = ('username', 'password', 'email')
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+            email=validated_data.get('email', '')
+        )
+        return user
+
+
 # ------ 辅助的、用于嵌套的 Serializer ------
 
 class GenreSerializer(serializers.ModelSerializer):

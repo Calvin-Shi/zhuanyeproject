@@ -1,8 +1,18 @@
+from django.contrib.auth.models import User
 from django.shortcuts import render
 from rest_framework import  viewsets, permissions
 from django_filters.rest_framework import  DjangoFilterBackend
 from .models import Movie, UserReview
 from .serializers import MovieListSerializer, MovieDetailSerializer,UserReviewSerializer
+from rest_framework import generics
+from rest_framework.permissions import AllowAny
+from .serializers import RegisterSerializer
+
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = RegisterSerializer
+    # 允许任何人访问注册接口
+    permission_classes = [AllowAny]
 
 class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     """

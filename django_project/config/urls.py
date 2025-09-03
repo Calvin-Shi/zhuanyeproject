@@ -16,6 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
+from films_recommender_system.views import RegisterView
+
+from films_recommender_system.views import RegisterView
 from testWeb import views
 
 urlpatterns = [
@@ -27,5 +34,9 @@ urlpatterns = [
     path('list',views.calList),
     path('del',views.delData),
     # 将电影推荐系统APP的URL包含到主路由中，并为其分配一个命名空间
-    path('api/', include('films_recommender_system.urls'))
+    path('api/', include('films_recommender_system.urls')),
+    # 认证API路由
+    path('api/register/', RegisterView.as_view(), name='register'),
+    path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

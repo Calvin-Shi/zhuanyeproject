@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,13 +38,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'testWeb',
-    'films_recommender_system',
+
+    # 第三方应用
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
     'django_filters',
+
+    # 电影推荐系统相关APP
+    'films_recommender_system',
+    'testWeb',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -52,6 +62,34 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# DRF配置
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # 设置JWT为主要的认证方式
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    # 其他DRF配置，分页、过滤
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ]
+}
+
+# CORS跨域配置
+# 允许所有来源的请求
+CORS_ALLOW_ALL_ORIGINS = True
+# 或，更安全指定允许的前端来源
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+# Simple JWT配置
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),  # Access Token有效期
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # Refresh Token有效期
+}
 
 ROOT_URLCONF = 'config.urls'
 
