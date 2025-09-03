@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'testWeb',
     'films_recommender_system',
+    'rest_framework',
+    'django_filters',
 ]
 
 MIDDLEWARE = [

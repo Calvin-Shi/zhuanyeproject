@@ -110,7 +110,7 @@ def create_reviews_csv(source_name, score_max, score_range, filename):
     :param filename: 输出的文件名
     """
     headers = [
-        "imdb_id", "original_title", "release_year",  # 包含关联键
+        "imdb_id", "original_title", "release_year",
         "author", "content", "score", "score_max"
     ]
     with open(filename, 'w', newline='', encoding='utf-8') as f:

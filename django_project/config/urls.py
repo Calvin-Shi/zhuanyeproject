@@ -15,14 +15,17 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from testWeb import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # 测试APP的URL
     path('index/', views.index),
     path('calPage', views.calPage),
     path('cal',views.calculate),
     path('list',views.calList),
     path('del',views.delData),
+    # 将电影推荐系统APP的URL包含到主路由中，并为其分配一个命名空间
+    path('api/', include('films_recommender_system.urls'))
 ]
