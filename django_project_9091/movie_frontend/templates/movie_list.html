@@ -29,6 +29,12 @@
           <a href="{% url 'movie_frontend:movie_detail' movie.id %}">
             {{ movie.display_title }}
           </a>
+
+<form method="post" action="{% url 'movie_frontend:toggle_favorite' movie.id %}" class="heart-form">
+  {% csrf_token %}
+  <button type="submit" class="heart-btn {% if movie.id in liked_ids %}liked{% endif %}" title="{% if movie.id in liked_ids %}取消喜欢{% else %}喜欢{% endif %}">♥</button>
+</form>
+
         </div>
         <div class="movie-info">
           <span class="release-year">{{ movie.release_year }}</span>

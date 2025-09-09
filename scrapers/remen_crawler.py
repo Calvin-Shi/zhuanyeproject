@@ -4,18 +4,18 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import time
 import csv
-
+import re
 
 def get_douban_movie_info():
 
     # 设置Chrome选项
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
 
     # 指定ChromeDriver路径
-    driver_path = "D:\\chromedriver\\chromedriver-win64\\chromedriver-win64\\chromedriver.exe" 
+    driver_path = "D:\\chromedriver\\chromedriver-win64\\chromedriver-win64\\chromedriver.exe"
     service = Service(driver_path)
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
@@ -25,7 +25,7 @@ def get_douban_movie_info():
         driver.get(url)
 
         # 等待页面加载
-        time.sleep(5)  
+        time.sleep(5)
 
         movie_cards = driver.find_elements(By.CSS_SELECTOR, "ul.subject-list-list li")
         if not movie_cards:
@@ -33,16 +33,20 @@ def get_douban_movie_info():
             return None
 
         movies = []
+        imdb_counter = 1
 
         for card in movie_cards:
             try:
-                # 提取电影链接 
-                link_element = card.find_element(By.TAG_NAME, "a")
-                movie_url = link_element.get_attribute("href")
-
-                # 提取电影名称
+                # 提取电影名称和中文标题
                 name_span = card.find_element(By.CLASS_NAME, "drc-subject-info-title-text")
-                movie_name = name_span.text.strip()
+                full_name = name_span.text.strip()
+                match = re.search(r'([\u4e00-\u9fa5]+)\s+(.+)', full_name)
+                if match:
+                    cn_title = match.group(1)
+                    original_title = match.group(2)
+                else:
+                    cn_title = full_name
+                    original_title = full_name
 
                 # 提取副标题信息
                 subtitle_div = card.find_element(By.CLASS_NAME, "drc-subject-info-subtitle")
@@ -50,27 +54,25 @@ def get_douban_movie_info():
 
                 # 解析副标题
                 parts = [p.strip() for p in subtitle_text.split('/')]
-                year = parts[0] if len(parts) > 0 else "未知"
-                country = parts[1] if len(parts) > 1 else "未知"
-                genre = ' '.join(parts[2:-2]) if len(parts) > 3 else "未知"
-                director = parts[-2] if len(parts) > 2 else "未知"
-                actors = parts[-1] if len(parts) > 1 else "未知"
+                release_year = parts[0] if len(parts) > 0 else "未知"
+                genres = parts[1] if len(parts) > 1 else "未知"
+                directors = parts[2] if len(parts) > 2 else "未知"
+                actors = parts[3] if len(parts) > 3 else "未知"
 
-                # 提取评分
-                rating_span = card.find_element(By.CLASS_NAME, "drc-rating-num")
-                rating = rating_span.text.strip()
-
-                # 添加到列表
+                # 按照标准化的表头名称将数据添加到列表中
                 movies.append({
-                    "电影名": movie_name,
-                    "链接": movie_url,
-                    "年份": year,
-                    "国家": country,
-                    "类型": genre,
-                    "导演": director,
-                    "主演": actors,
-                    "评分": rating
+                    "imdb_id": f"tt{imdb_counter:06}",
+                    "original_title": original_title,
+                    "cn_titles": cn_title,
+                    "release_year": release_year,
+                    "genres": genres,
+                    "directors": directors,
+                    "actors": actors
                 })
+                
+                # 递增 imdb_id
+                imdb_counter += 1
+
             except Exception as inner_e:
                 print(f"提取单个电影信息时发生异常: {inner_e}")
                 continue
@@ -85,13 +87,11 @@ def get_douban_movie_info():
         # 关闭浏览器
         driver.quit()
 
-
 if __name__ == '__main__':
     movie_list = get_douban_movie_info()
     if movie_list:
-        # 保存到CSV文件
-        csv_filename = "douban_remen_movies.csv"
-        fieldnames = ["电影名", "链接", "年份", "国家", "类型", "导演", "主演", "评分"]
+        csv_filename = "movies.csv"
+        fieldnames = ["imdb_id", "original_title", "cn_titles", "release_year", "genres", "directors", "actors"]
         with open(csv_filename, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()

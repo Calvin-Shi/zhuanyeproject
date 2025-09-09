@@ -4,6 +4,11 @@
 {% block title %}首页 - 电影推荐系统{% endblock %}
 
 {% block content %}
+
+<section class="cta">
+  <a class="btn primary-btn" href="{% url 'movie_frontend:choose_favorites' %}">根据你的喜好进行推荐</a>
+</section>
+
 <section class="hero">
     <div class="hero-content">
         <h1>发现你喜爱的电影</h1>

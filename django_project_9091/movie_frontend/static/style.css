@@ -281,3 +281,8 @@ footer {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     }
 }
+.heart-form { display:inline-block; margin-left: 8px; }
+.heart-btn { border:none; background:transparent; font-size: 1.2rem; cursor:pointer; opacity: 0.6; }
+.heart-btn.liked { opacity: 1; }
+.heart-btn:hover { transform: scale(1.1); }
+.cta { margin: 1rem 0; }
