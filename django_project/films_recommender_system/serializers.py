@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from .models import Movie, MovieTitle, Genre, Person, Source, Review, UserReview
 from django.contrib.auth.models import User
 
@@ -85,3 +86,15 @@ class UserReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserReview
         fields = ['user', 'movie', 'rating', 'review', 'timestamp']
+
+    def validate(self, data):
+        user = self.context['request'].user
+        movie = data.get('movie')
+
+        if self.instance:
+            return data
+
+        if user.is_authenticated and UserReview.objects.filter(user=user, movie=movie).exists():
+            raise ValidationError("您已经对这部电影进行过评价，请勿重复提交。")
+
+        return data

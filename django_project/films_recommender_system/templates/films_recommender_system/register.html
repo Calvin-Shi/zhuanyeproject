@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}用户注册{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="mb-4">创建新账户</h2>
+        <div class="card">
+            <div class="card-body">
+                <!-- 将用JS处理这个表单 -->
+                <form id="register-form">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password2" class="form-label">确认密码</label>
+                        <input type="password" class="form-control" id="password2" name="password2" required>
+                    </div>
+                                        <div class="mb-3">
+                        <label for="email" class="form-label">电子邮箱</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100">注册</button>
+                </form>
+                <!-- 这个 div 用来显示成功或失败的消息 -->
+                <div id="form-message" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('register-form');
+    const messageDiv = document.getElementById('form-message');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    form.addEventListener('submit', function(event) {
+        event.preventDefault(); // 阻止页面刷新
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const password2 = document.getElementById('password2').value;
+        const email = document.getElementById('email').value;
+
+        // 1. 前端初步验证
+        if (password !== password2) {
+            messageDiv.innerHTML = '<div class="alert alert-danger">两次输入的密码不一致！</div>';
+            return; // 停止执行
+        }
+
+        // 2. 发送数据到你的 DRF API
+        fetch('/api/register/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password,
+                email: email
+            })
+        })
+        .then(response => {
+            // DRF在失败时也会返回JSON，所以我们先解析它
+            return response.json().then(data => ({ ok: response.ok, data }));
+        })
+        .then(({ ok, data }) => {
+            if (ok) {
+                // 3. 处理成功响应
+                messageDiv.innerHTML = '<div class="alert alert-success">注册成功！即将跳转到登录页面...</div>';
+                // 1.5秒后跳转到登录页面
+                setTimeout(() => {
+                    window.location.href = "{% url 'login' %}";
+                }, 1500);
+            } else {
+                // 4. 处理失败响应 (例如: 用户名已存在)
+                let errorMessages = '';
+                // DRF的验证错误通常是一个对象，key是字段名，value是错误消息列表
+                for (const key in data) {
+                    errorMessages += `<p>${key}: ${data[key].join(', ')}</p>`;
+                }
+                messageDiv.innerHTML = `<div class="alert alert-danger">${errorMessages}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('注册过程中发生网络错误:', error);
+            messageDiv.innerHTML = '<div class="alert alert-danger">注册失败，请稍后重试。</div>';
+        });
+    });
+});
+</script>
+{% endblock %}

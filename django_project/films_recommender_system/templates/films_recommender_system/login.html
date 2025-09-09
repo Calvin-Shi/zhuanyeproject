@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}用户登录{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="mb-4">用户登录</h2>
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!-- Django 的 LoginView 会自动传递一个 form 对象到模板 -->
+                    <!-- {{ form.as_p }} 会将表单字段渲染成被 <p> 标签包裹的形式 -->
+                    {{ form.as_p }}
+
+                    <button type="submit" class="btn btn-primary w-100">登录</button>
+                </form>
+            </div>
+        </div>
+        {% if form.errors %}
+            <div class="alert alert-danger mt-3">
+                <p>你的用户名或密码不正确，请重试。</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
