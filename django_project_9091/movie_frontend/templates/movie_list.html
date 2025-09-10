@@ -7,6 +7,11 @@
   <div class="filters">
     <h2>电影列表</h2>
     <div class="filter-options">
+      <form method="get" class="search-form">
+        <input type="text" name="q" placeholder="搜索电影名称" value="{{ query }}">
+        <button type="submit" class="btn search-btn">搜索</button>
+      </form>
+
       <form method="get" class="genre-filter">
         <label for="genre">按类型筛选:</label>
         <select name="genre" id="genre" onchange="this.form.submit()">
@@ -55,5 +60,14 @@
       <p class="no-movies">没有找到符合条件的电影</p>
     {% endfor %}
   </div>
+
+  <div class="movie-grid">
+    {% for movie in movies %}
+      <!-- 电影卡片内容 -->
+    {% empty %}
+      <p class="no-movies">没有找到符合条件的电影</p>
+    {% endfor %}
+  </div>
+
 </section>
 {% endblock %}

@@ -272,6 +272,33 @@ footer {
     }
 }
 
+/* 搜索表单样式 */
+.search-form {
+    margin-right: 20px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.search-form input {
+    padding: 8px 12px;
+    border: 1px solid var(--gray-color);
+    border-radius: 4px 0 0 4px;
+    width: 250px;
+}
+
+.search-form .search-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+}
+
+.search-form .search-btn:hover {
+    background-color: #2980b9;
+}
+
 @media (max-width: 480px) {
     .nav-links {
         display: none;

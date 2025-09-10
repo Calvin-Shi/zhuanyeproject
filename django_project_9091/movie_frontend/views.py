@@ -58,15 +58,28 @@ def home(request):
     }
     return render(request, 'index.html', context)
 
+from django.db.models import Q
+
 def movie_list(request):
     qs = Movie.objects.all().prefetch_related('titles','genres')
     selected_genre_id = request.GET.get('genre')
+    query = request.GET.get('q', '').strip()  # 获取搜索关键词
+
     if selected_genre_id:
         try:
             gid = int(selected_genre_id)
             qs = qs.filter(genres__id=gid)
         except ValueError:
             pass
+
+    if query:
+        # 搜索匹配：电影原始标题、多语言标题、剧情简介
+        qs = qs.filter(
+            Q(original_title__icontains=query) |  # 原始标题模糊匹配
+            Q(titles__title_text__icontains=query) |  # 多语言标题匹配
+            Q(summary__icontains=query)  # 剧情简介匹配
+        ).distinct()  # 去重，避免重复结果
+
     movies = _attach_display_titles(list(qs.distinct()))
     genres = list(Genre.objects.all())
     context = {
@@ -74,7 +87,7 @@ def movie_list(request):
         'genres': genres,
         'selected_genre_id': int(selected_genre_id) if selected_genre_id and selected_genre_id.isdigit() else None,
         'fav_ids': _get_fav_ids(request),
-        'query': request.GET.get('q',''),
+        'query': query,
     }
     return render(request, 'movie_list.html', context)
 
