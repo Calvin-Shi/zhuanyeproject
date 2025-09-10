@@ -9,9 +9,6 @@ from selenium.common.exceptions import NoSuchElementException
 
 
 def scrape_douban_data():
-    """
-    爬取豆瓣热门电影数据，包括电影元数据和用户评论，并返回两个列表。
-    """
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -28,7 +25,7 @@ def scrape_douban_data():
     imdb_counter = 1
 
     try:
-        # 第一步：爬取电影列表页，获取基本信息和每个电影的链接
+        #爬取电影列表页，获取基本信息和每个电影的链接
         driver.get(base_url)
         time.sleep(5)
         movie_cards = driver.find_elements(By.CSS_SELECTOR, "ul.subject-list-list li")
@@ -73,21 +70,21 @@ def scrape_douban_data():
                 print(f"提取列表页信息时发生异常: {e}")
                 continue
 
-        # 第二步：访问每个电影的详情页，提取额外信息和评论
+        #访问每个电影的详情页，提取额外信息和评论
         for movie in movies:
             try:
                 print(f"正在爬取电影详情页: {movie['original_title']}")
                 driver.get(movie['link'])
                 time.sleep(3)
 
-                # 提取剧情简介 (summary)
+                #提取剧情简介
                 try:
                     summary_element = driver.find_element(By.CSS_SELECTOR, 'span[property="v:summary"]')
                     movie['summary'] = summary_element.text.strip()
                 except NoSuchElementException:
                     movie['summary'] = "无"
 
-                # 提取类型 (genres)
+                #提取类型
                 try:
                     genres_elements = driver.find_elements(By.CSS_SELECTOR, 'span[property="v:genre"]')
                     genres = " / ".join([g.text.strip() for g in genres_elements])
@@ -95,7 +92,7 @@ def scrape_douban_data():
                 except NoSuchElementException:
                     movie['genres'] = "未知"
 
-                # 提取编剧 (scriptwriters)
+                #提取编剧
                 try:
                     scriptwriters_section = driver.find_element(By.XPATH,
                                                                 "//div[@id='info']//span[text()='编剧']/following-sibling::span[1]")
@@ -105,35 +102,35 @@ def scrape_douban_data():
                 except NoSuchElementException:
                     movie['scriptwriters'] = "未知"
 
-                # 提取片长 (length)
+                #提取片长
                 try:
                     length_element = driver.find_element(By.CSS_SELECTOR, 'span[property="v:runtime"]')
                     movie['length'] = length_element.text.strip()
                 except NoSuchElementException:
                     movie['length'] = "未知"
 
-                # 新增：提取豆瓣均分 (Douban Average Score)
+                #提取豆瓣均分
                 try:
                     score_element = driver.find_element(By.CSS_SELECTOR, 'strong[property="v:average"]')
                     movie['douban_average_score'] = score_element.text.strip()
                 except NoSuchElementException:
                     movie['douban_average_score'] = "无评分"
 
-                # 新增：提取评分人数 (Number of Ratings)
+                #提取评分人数
                 try:
                     votes_element = driver.find_element(By.CSS_SELECTOR, 'span[property="v:votes"]')
                     movie['number_of_ratings'] = votes_element.text.strip()
                 except NoSuchElementException:
                     movie['number_of_ratings'] = "未知"
 
-                # 新增：根据均分判断电影星级
+                #根据均分判断电影星级
                 try:
                     score = float(movie['douban_average_score'])
                     movie['douban_star_rating'] = score / 2.0
                 except (ValueError, TypeError):
                     movie['douban_star_rating'] = "未知星级"
 
-                # 爬取评论
+                #爬取评论
                 comment_items = driver.find_elements(By.CSS_SELECTOR, "#comments-section .comment-item")
 
                 if not comment_items:
