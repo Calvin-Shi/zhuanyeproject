@@ -35,12 +35,14 @@ def scrape_douban_data():
 
         while attempt < max_attempts:
             try:
+                # 滚动到页面底部，确保按钮可见
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(2)
+                time.sleep(2)  # 等待滚动完成
 
+                # 查找并点击"加载更多"按钮
                 load_more_button = driver.find_element(By.XPATH, "//button[contains(text(), '加载更多')]")
                 load_more_button.click()
-                time.sleep(random.uniform(6, 10))
+                time.sleep(random.uniform(6, 10))  # 随机延时等待新内容加载
                 print("点击'加载更多'成功，加载下一批电影...")
                 attempt += 1
             except NoSuchElementException:
@@ -51,6 +53,7 @@ def scrape_douban_data():
                 time.sleep(5)  # 短暂休息后重试
                 continue
 
+        # 所有加载完成后，获取所有电影卡片
         movie_cards = driver.find_elements(By.CSS_SELECTOR, "ul.subject-list-list li")
 
         if not movie_cards:
@@ -77,7 +80,7 @@ def scrape_douban_data():
                 subtitle_text = subtitle_div.text.strip()
                 parts = [p.strip() for p in subtitle_text.split('/')]
                 release_year = parts[0] if len(parts) > 0 else "未知"
-                directors = parts[2] if len(parts) > 2 else "未知"
+                directors = parts[2] if len(parts) > 2 else "未知"  # 列表页的初步导演信息
                 actors = parts[3] if len(parts) > 3 else "未知"
 
                 movies.append({
@@ -95,6 +98,7 @@ def scrape_douban_data():
                 print(f"提取列表页信息时发生异常: {e}")
                 continue
 
+        # 访问每个电影的详情页，提取额外信息和评论
         for movie in movies:
             try:
                 print(f"正在爬取电影详情页: {movie['original_title']}")
@@ -119,12 +123,20 @@ def scrape_douban_data():
                 # 提取编剧
                 try:
                     scriptwriters_section = driver.find_element(By.XPATH,
-                                                                "//div[@id='info']//span[text()='编剧']/following-sibling::span[1]")
+                                                              "//div[@id='info']//span[text()='编剧']/following-sibling::span[1]")
                     scriptwriters_links = scriptwriters_section.find_elements(By.TAG_NAME, "a")
                     scriptwriters = " / ".join([s.text.strip() for s in scriptwriters_links])
                     movie['scriptwriters'] = scriptwriters if scriptwriters else "未知"
                 except NoSuchElementException:
                     movie['scriptwriters'] = "未知"
+
+                # 提取导演
+                try:
+                    directors_section = driver.find_element(By.XPATH, "//div[@id='info']//span[text()='导演']/following-sibling::span[1]")
+                    directors_links = directors_section.find_elements(By.TAG_NAME, "a")
+                    movie['directors'] = " / ".join([d.text.strip() for d in directors_links]) if directors_links else "未知"
+                except NoSuchElementException:
+                    movie['directors'] = "未知"
 
                 # 提取片长
                 try:
