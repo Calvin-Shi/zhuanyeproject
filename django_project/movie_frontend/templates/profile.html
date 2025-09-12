@@ -3,98 +3,205 @@
 {% block title %}个人资料 - 电影推荐系统{% endblock %}
 
 {% block content %}
-<section class="profile-page">
+<section class="profile-container">
     <h1>个人资料</h1>
 
-    <div class="user-info">
-        <!-- 显示用户信息 -->
-        <h2>{{ user.profile.nickname|default:user.username }}</h2>  <!-- 优先显示昵称，无则显示用户名 -->
-        <p><strong>用户名：</strong>{{ user.username }}</p>
-        {% if user.email %}
-            <p><strong>邮箱：</strong>{{ user.email }}</p>
-        {% endif %}
-        {% if user.profile.signature %}
-            <p><strong>个人签名：</strong>{{ user.profile.signature }}</p>
-        {% endif %}
-
-        <!-- 编辑昵称和签名的表单 -->
-        <div class="profile-edit-form">
-            <h3>编辑个人信息</h3>
-            <form method="post">
-                {% csrf_token %}
-
-                <div class="form-group">
-                    <label for="{{ form.nickname.id_for_label }}">昵称：</label>
-                    {{ form.nickname }}  <!-- 表单字段：昵称输入框 -->
-                </div>
-
-                <div class="form-group">
-                    <label for="{{ form.signature.id_for_label }}">个人签名：</label>
-                    {{ form.signature }}  <!-- 表单字段：签名文本框 -->
-                </div>
-
-                <button type="submit" class="btn-primary">保存修改</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- "喜欢的电影"显示区域） -->
-    <div class="favorite-movies">
-        <h3>你喜欢的电影</h3>
-        {% if favorite_movies %}
-            <div class="movie-grid">
-                {% for movie in favorite_movies %}
-                    <div class="movie-card">
-                        <div class="movie-title">{{ movie.display_title }}</div>
-                        <div class="genres">
-                            {% for genre in movie.genres.all|slice:':2' %}
-                                <span class="genre-tag">{{ genre.name }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endfor %}
+    {% if user.is_authenticated %}
+        <!-- 用户基本信息 -->
+        <div class="user-info">
+            <!-- 昵称显示/编辑区域 -->
+            <div class="info-item">
+                <strong>昵称：</strong>
+                <span class="info-display" id="nickname-display">
+                    {{ user.profile.nickname|default:user.username }}
+                </span>
+                <input type="text"
+                       class="info-input"
+                       id="nickname-input"
+                       value="{{ user.profile.nickname|default:'' }}"
+                       style="display:none;"
+                       maxlength="100">
             </div>
-        {% else %}
-            <p>你还没有选择喜欢的电影，<a href="{% url 'movie_frontend:choose_favorites' %}">去选择</a></p>
-        {% endif %}
-    </div>
+
+            <!-- 签名显示/编辑区域 -->
+            <div class="info-item">
+                <strong>个人签名：</strong>
+                <p class="info-display" id="signature-display">
+                    {{ user.profile.signature|default:"未设置签名" }}
+                </p>
+                <textarea class="info-input"
+                          id="signature-input"
+                          rows="3"
+                          style="display:none;"
+                          maxlength="500">{{ user.profile.signature|default:'' }}</textarea>
+            </div>
+
+            <p><strong>用户名：</strong>{{ user.username }}</p>
+            {% if user.email %}
+                <p><strong>邮箱：</strong>{{ user.email }}</p>
+            {% endif %}
+
+            <!-- 操作按钮 -->
+            <button id="edit-btn" class="btn-primary">修改信息</button>
+        </div>
+
+        <!-- 我喜欢的电影栏 -->
+        <div class="favorite-movies-section">
+            <div class="section-header">
+                <h3>我喜欢的电影</h3>
+                <p>这些是你在"选择你喜欢的电影"中勾选的影片</p>
+            </div>
+
+            {% if favorite_movies %}
+                <div class="movies-grid">
+                    {% for movie in favorite_movies %}
+                        <div class="movie-card">
+                            <div class="movie-info">
+                                <h4 class="movie-title">
+                                    <a href="{% url 'movie_frontend:movie_detail' movie.id %}">
+                                        {{ movie.display_title }}
+                                    </a>
+                                </h4>
+                                <div class="movie-meta">
+                                    <span class="release-year">{{ movie.release_year }}</span>
+                                    <div class="genres">
+                                        {% for genre in movie.genres.all|slice:":3" %}
+                                            <span class="genre-badge">{{ genre.name }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fa fa-film"></i>
+                    <p>你还没有选择喜欢的电影</p>
+                    <a href="{% url 'movie_frontend:choose_favorites' %}" class="btn-primary">
+                        去选择喜欢的电影
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+    {% else %}
+        <div class="login-prompt">
+            <p>请先登录查看个人资料</p>
+            <a href="{% url 'movie_frontend:login' %}" class="btn-primary">登录</a>
+        </div>
+    {% endif %}
 </section>
 {% endblock %}
 
 {% block extra_css %}
-<!-- 添加表单样式 -->
 <style>
-.form-group {
-    margin: 15px 0;
-}
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-.form-group input, .form-group textarea {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-sizing: border-box;
-}
-.profile-edit-form {
-    margin: 20px 0;
-    padding: 20px;
-    border: 1px solid #f0f0f0;
-    border-radius: 6px;
-}
-.btn-primary {
-    background: #007bff;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-.btn-primary:hover {
-    background: #0056b3;
-}
+    .user-info {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+
+    .info-item {
+        margin: 15px 0;
+    }
+
+    .info-input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-top: 5px;
+    }
+
+    .btn-primary {
+        display: inline-block;
+        background: #2c3e50;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    .btn-primary:hover {
+        background: #34495e;
+    }
+
+    .btn-success {
+        background: #27ae60;
+    }
+
+    .btn-success:hover {
+        background: #219653;
+    }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+const editBtn = document.getElementById('edit-btn');
+const nicknameDisplay = document.getElementById('nickname-display');
+const nicknameInput = document.getElementById('nickname-input');
+const signatureDisplay = document.getElementById('signature-display');
+const signatureInput = document.getElementById('signature-input');
+let isEditing = false;
+
+// 切换编辑状态
+editBtn.addEventListener('click', function() {
+    if (!isEditing) {
+        // 进入编辑模式
+        nicknameDisplay.style.display = 'none';
+        nicknameInput.style.display = 'block';
+        signatureDisplay.style.display = 'none';
+        signatureInput.style.display = 'block';
+        editBtn.textContent = '确认修改';
+        editBtn.classList.add('btn-success');
+        isEditing = true;
+    } else {
+        // 提交修改
+        submitChanges();
+    }
+});
+
+// 提交修改到后端
+function submitChanges() {
+    const formData = new FormData();
+    formData.append('nickname', nicknameInput.value);
+    formData.append('signature', signatureInput.value);
+
+    fetch('{% url "movie_frontend:profile" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 更新显示内容
+            nicknameDisplay.textContent = data.nickname || '{{ user.username }}';
+            signatureDisplay.textContent = data.signature || '未设置签名';
+
+            // 退出编辑模式
+            nicknameInput.style.display = 'none';
+            signatureInput.style.display = 'none';
+            nicknameDisplay.style.display = 'inline';
+            signatureDisplay.style.display = 'block';
+            editBtn.textContent = '修改信息';
+            editBtn.classList.remove('btn-success');
+            isEditing = false;
+        } else {
+            alert('修改失败：' + JSON.stringify(data.errors));
+        }
+    })
+    .catch(error => console.error('提交失败：', error));
+}
+</script>
 {% endblock %}

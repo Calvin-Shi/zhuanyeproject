@@ -8,6 +8,7 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.db import transaction
 from django import forms
+from django.http import JsonResponse
 from django.db.models import Prefetch
 
 from films_recommender_system.models import (
@@ -158,14 +159,15 @@ def profile(request):
 
     # 处理表单提交
     if request.method == 'POST':
-        # 使用视图内部定义的表单类处理数据
         form = ProfileForm(request.POST, instance=profile)
         if form.is_valid():
-            form.save()  # 保存修改
-            return redirect('movie_frontend:profile')  # 刷新页面显示最新数据
-    else:
-        # 初始化表单（显示现有数据）
-        form = ProfileForm(instance=profile)
+            form.save()
+            return JsonResponse({
+                'status': 'success',
+                'nickname': profile.nickname,
+                'signature': profile.signature
+            })
+        return JsonResponse({'status': 'error', 'errors': form.errors})
 
     # "喜欢的电影"处理逻辑
     def _get_fav_ids(request):
@@ -196,7 +198,6 @@ def profile(request):
     # 传递数据到模板
     context = {
         'favorite_movies': favorite_movies,
-        'form': form,
         'profile': profile
     }
 
