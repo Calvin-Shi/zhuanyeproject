@@ -138,3 +138,36 @@ def toggle_favorite(request, movie_id):
     # 回到来源页
     next_url = request.META.get('HTTP_REFERER') or reverse('movie_frontend:home')
     return HttpResponseRedirect(next_url)
+
+@login_required
+def profile(request):
+    """
+       个人资料视图：
+       展示用户信息及在"选择你喜欢的电影"中勾选的电影
+       """
+    #获取用户勾选的喜欢的电影ID
+    fav_ids = _get_fav_ids(request)
+
+    favorite_movies = _attach_display_titles(
+        list(Movie.objects.filter(
+            id__in=fav_ids
+        ).prefetch_related(
+            'titles',
+            'genres'
+        ))
+    )
+
+    with transaction.atomic():
+        # 获取或创建用户的推荐记录
+        user_recommendation, _ = Recommendation.objects.get_or_create(user=request.user)
+        # 将勾选的电影设置为用户推荐的电影
+        user_recommendation.recommended_movies.set(favorite_movies)
+
+    # 传递数据到模板
+    context = {
+        'favorite_movies': favorite_movies,  # 勾选的喜欢的电影
+
+    }
+
+    # 5. 渲染个人资料模板
+    return render(request, 'profile.html', context)

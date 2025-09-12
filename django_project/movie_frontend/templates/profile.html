@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block title %}个人资料 - 电影推荐系统{% endblock %}
+
+{% block content %}
+<section class="profile-container">
+    <h1>个人资料</h1>
+
+    {% if user.is_authenticated %}
+        <!-- 用户基本信息 -->
+        <div class="user-info">
+            <h2>{{ user.nickname|default:user.username }}</h2>
+            <p><strong>用户名：</strong>{{ user.username }}</p>
+            {% if user.email %}
+                <p><strong>邮箱：</strong>{{ user.email }}</p>
+            {% endif %}
+        </div>
+
+        <!-- 我喜欢的电影栏 -->
+        <div class="favorite-movies-section">
+            <div class="section-header">
+                <h3>我喜欢的电影</h3>
+                <p>这些是你在"选择你喜欢的电影"中勾选的影片</p>
+            </div>
+
+            {% if favorite_movies %}
+                <div class="movies-grid">
+                    {% for movie in favorite_movies %}
+                        <div class="movie-card">
+
+                            <!-- 电影信息 -->
+                            <div class="movie-info">
+                                <h4 class="movie-title">
+                                    <a href="{% url 'movie_frontend:movie_detail' movie.id %}">
+                                        {{ movie.display_title }}
+                                    </a>
+                                </h4>
+                                <div class="movie-meta">
+                                    <span class="release-year">{{ movie.release_year }}</span>
+                                    <div class="genres">
+                                        {% for genre in movie.genres.all|slice:":3" %}
+                                            <span class="genre-badge">{{ genre.name }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fa fa-film"></i>
+                    <p>你还没有选择喜欢的电影</p>
+                    <a href="{% url 'movie_frontend:choose_favorites' %}" class="btn-primary">
+                        去选择喜欢的电影
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+    {% else %}
+        <div class="login-prompt">
+            <p>请先登录查看个人资料</p>
+            <a href="{% url 'movie_frontend:login' %}" class="btn-primary">登录</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 0 20px;
+    }
+
+    .user-info {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+
+    .favorite-movies-section {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .section-header {
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .section-header p {
+        color: #666;
+        margin-top: 5px;
+    }
+
+    .movies-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 25px;
+    }
+
+    .movie-card {
+        transition: transform 0.3s ease;
+    }
+
+    .movie-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .movie-poster img {
+        width: 100%;
+        border-radius: 4px;
+        aspect-ratio: 2/3;
+        object-fit: cover;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .movie-info {
+        padding: 10px 0;
+    }
+
+    .movie-title a {
+        color: #333;
+        text-decoration: none;
+        font-weight: 600;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .movie-meta {
+        margin-top: 5px;
+        font-size: 0.9em;
+    }
+
+    .release-year {
+        color: #666;
+    }
+
+    .genres {
+        margin-top: 5px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .genre-badge {
+        background: #f0f0f0;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        color: #555;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 50px 20px;
+        color: #666;
+    }
+
+    .empty-state i {
+        font-size: 4em;
+        margin-bottom: 20px;
+        color: #ddd;
+    }
+
+    .btn-primary {
+        display: inline-block;
+        background: #2c3e50;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-top: 15px;
+        transition: background 0.3s;
+    }
+
+    .btn-primary:hover {
+        background: #34495e;
+    }
+
+    .login-prompt {
+        text-align: center;
+        padding: 50px 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}

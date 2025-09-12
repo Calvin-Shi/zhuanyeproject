@@ -17,6 +17,7 @@
       <li><a href="{% url 'movie_frontend:choose_favorites' %}">选择喜好</a></li>
       {% if user.is_authenticated %}
         <li><a href="{% url 'movie_frontend:recommendations' %}">我的推荐</a></li>
+        <li><a href="{% url 'movie_frontend:profile' %}">个人资料</a></li>
       {% endif %}
     </ul>
     <ul class="auth-links">
