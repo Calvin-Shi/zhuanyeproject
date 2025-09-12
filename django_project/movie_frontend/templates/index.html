@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+
+{% block title %}首页 - 电影推荐系统{% endblock %}
+
+{% block content %}
+
+<section class="cta">
+  <a class="btn primary-btn" href="{% url 'movie_frontend:choose_favorites' %}">根据你的喜好进行推荐</a>
+</section>
+
+<section class="hero">
+    <div class="hero-content">
+        <h1>发现你喜爱的电影</h1>
+        <p>基于你的喜好，为你推荐个性化电影</p>
+        <a href="{% url 'movie_frontend:movie_list' %}" class="btn primary-btn">浏览电影</a>
+        {% load static %}  <!-- 确保已加载 static 标签 -->
+        <link rel="stylesheet" href="{% static 'style.css' %}">
+    </div>
+</section>
+
+<section class="popular-movies">
+    <h2>热门电影</h2>
+    <div class="movie-grid">
+        {% for movie in movies %}
+            <div class="movie-card">
+                <div class="movie-title">
+                    <a href="{% url 'movie_frontend:movie_detail' movie.id %}">
+                        {{ movie.display_title }}
+                    </a>
+                </div>
+                <div class="movie-info">
+                    <span class="release-year">{{ movie.release_year }}</span>
+                    <div class="genres">
+                        {% for genre in movie.genres.all|slice:":2" %}
+                            <span class="genre-tag">{{ genre.name }}</span>
+                        {% endfor %}
+                        {% if movie.genres.all.count > 2 %}
+                            <span class="genre-tag">+{{ movie.genres.all.count|add:"-2" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <p class="no-movies">暂无电影数据</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

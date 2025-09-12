@@ -27,6 +27,8 @@ from testWeb import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', include(('movie_frontend.urls', 'movie_frontend'), namespace='movie_frontend')),
+    path('accounts/', include('django.contrib.auth.urls')),
     # 测试APP的URL
     path('index/', views.index),
     path('calPage', views.calPage),
