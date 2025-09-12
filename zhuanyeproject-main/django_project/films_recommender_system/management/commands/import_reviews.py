@@ -49,7 +49,7 @@ class Command(BaseCommand):
                         _, created = Review.objects.get_or_create(
                             movie=movie,
                             source=source,
-                            score=float(row['score'])if row.get('score') else None,
+                            score=float(row['score'])if row.get('score')!='无评分' else None,
                             score_max=float(row['score_max'])if row.get('score_max') else source.score_max,
                             defaults={
                                 'author': row.get('author',''),

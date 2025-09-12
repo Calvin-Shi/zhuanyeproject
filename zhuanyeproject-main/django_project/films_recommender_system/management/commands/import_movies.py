@@ -40,7 +40,7 @@ class Command(BaseCommand):
                         release_year=int(release_year),
                         defaults={
                             'language': row.get('language',''),
-                            'length': int(row['length']),
+                            'length': int(row.get('length').split('分')[0]) if row.get('length') else 0,
                             'summary': row.get('summary', ''),
                             'imdb_id': row.get('imdb_id')if row.get('imdb_id') else None
                         }
@@ -60,7 +60,7 @@ class Command(BaseCommand):
                         )
                         # 创建中文名称
                         if row.get('cn_titles'):
-                            for cn_title in row.get('cn_titles').split('|'):
+                            for cn_title in row.get('cn_titles').split('/'):
                                 MovieTitle.objects.create(
                                     movie=movie,
                                     title_text=cn_title.strip(),
@@ -96,7 +96,7 @@ class Command(BaseCommand):
         # Movie 模型上的多对多管理器，(e.g. movie.genres, movie.actors)
         movie_field = getattr(movie, field_name)
 
-        for name in names_str.split('|'):
+        for name in names_str.split('/'):
             name = name.strip()
             if name:
                 obj, created = model.objects.get_or_create(name=name)
