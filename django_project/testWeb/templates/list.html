@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>计算数据信息</title>
+</head>
+<body>
+<table>
+  <thead>
+  <tr>
+    <th>value1</th>
+    <th>value2</th>
+    <th>result</th>
+  </tr>
+  </thead>
+
+  {% for item in data %}
+  <tr>
+    <td>{{item.value1}}</td>
+    <td>{{item.value2}}</td>
+    <td>{{item.result}}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<form action="del" method = "POST">
+    {% csrf_token %}
+    <input type="submit" value = "清库">
+</form>
+
+</body>
+</html>

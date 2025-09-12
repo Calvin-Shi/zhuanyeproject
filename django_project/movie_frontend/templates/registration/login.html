@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}登录 - 电影推荐系统{% endblock %}
+
+{% block content %}
+  <h2>登录</h2>
+
+  {% if form.errors %}
+    <p style="color:red;">用户名或密码错误，请重试。</p>
+  {% endif %}
+
+  <form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+    <div>
+      <label for="id_username">用户名：</label>
+      {{ form.username }}
+    </div>
+    <div>
+      <label for="id_password">密码：</label>
+      {{ form.password }}
+    </div>
+    <button type="submit">登录</button>
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  </form>
+
+  <p class="auth-switch">
+    没有账号？<a href="{% url 'movie_frontend:signup' %}">去注册</a>
+  </p>
+{% endblock %}

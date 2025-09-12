@@ -1,0 +1,40 @@
+
+{% comment %}通用电影卡片: movie, selectable(bool), linkable(bool), selected_ids(set){% endcomment %}
+{% if linkable %}
+  <a class="movie-card" href="{% url 'movie_frontend:movie_detail' movie.id %}">
+{% else %}
+  <div class="movie-card">
+{% endif %}
+    <div class="poster">
+      {% if movie.poster_url %}
+        <img src="{{ movie.poster_url }}" alt="{{ movie.original_title }}">
+      {% else %}
+        <div class="poster-placeholder">No Poster</div>
+      {% endif %}
+    </div>
+    <div class="info">
+      <h3>
+        {% with main_title=movie.titles.all|dictsortreversed:"is_primary"|first %}
+          {{ main_title.title|default:movie.original_title }}
+        {% endwith %}
+      </h3>
+      <p class="genres">
+        {% for g in movie.genres.all %}
+          <span class="chip">{{ g.name }}</span>
+        {% empty %}
+          <span class="muted">未标注</span>
+        {% endfor %}
+      </p>
+    </div>
+    {% if selectable %}
+      <label class="select-overlay">
+        <input type="checkbox" name="movie_ids" value="{{ movie.id }}"
+               {% if selected_ids and movie.id in selected_ids %}checked{% endif %}>
+        <span>选择</span>
+      </label>
+    {% endif %}
+{% if linkable %}
+  </a>
+{% else %}
+  </div>
+{% endif %}
