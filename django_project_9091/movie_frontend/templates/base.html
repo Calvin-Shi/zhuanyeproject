@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}电影推荐系统{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+</head>
+<body>
+<header>
+  <nav class="navbar">
+    <div class="logo">电影推荐系统</div>
+    <ul class="nav-links">
+      <li><a href="{% url 'movie_frontend:home' %}">首页</a></li>
+      <li><a href="{% url 'movie_frontend:movie_list' %}">电影列表</a></li>
+      <li><a href="{% url 'movie_frontend:choose_favorites' %}">选择喜好</a></li>
+      {% if user.is_authenticated %}
+        <li><a href="{% url 'movie_frontend:recommendations' %}">我的推荐</a></li>
+      {% endif %}
+    </ul>
+    <ul class="auth-links">
+      {% if user.is_authenticated %}
+        <li class="hello">你好，{{ user.username }}</li>
+        <a href="{% url 'logout' %}?next={% url 'login' %}">退出登录</a>
+      {% else %}
+        <li><a href="{% url 'login' %}?next=/">登录</a></li>
+        <li><a href="{% url 'movie_frontend:signup' %}">注册</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+</header>
+
+<main class="content">
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  <div class="footer-content">
+    <p>&copy; 2025 电影推荐系统 - 基于Django开发</p>
+  </div>
+</footer>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}电影列表 - 电影推荐系统{% endblock %}
+
+{% block content %}
+<section class="movie-list-container">
+  <div class="filters">
+    <h2>电影列表</h2>
+    <div class="filter-options">
+      <form method="get" class="search-form">
+        <input type="text" name="q" placeholder="搜索电影名称" value="{{ query }}">
+        <button type="submit" class="btn search-btn">搜索</button>
+      </form>
+
+      <form method="get" class="genre-filter">
+        <label for="genre">按类型筛选:</label>
+        <select name="genre" id="genre" onchange="this.form.submit()">
+          <option value="">所有类型</option>
+          {% for genre in genres %}
+            <option value="{{ genre.id }}"
+              {% if selected_genre_id == genre.id %}selected{% endif %}>
+              {{ genre.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+  </div>
+
+  <div class="movie-grid">
+    {% for movie in movies %}
+      <div class="movie-card">
+        <div class="movie-title">
+          <a href="{% url 'movie_frontend:movie_detail' movie.id %}">
+            {{ movie.display_title }}
+          </a>
+
+<form method="post" action="{% url 'movie_frontend:toggle_favorite' movie.id %}" class="heart-form">
+  {% csrf_token %}
+  <button type="submit" class="heart-btn {% if movie.id in liked_ids %}liked{% endif %}" title="{% if movie.id in liked_ids %}取消喜欢{% else %}喜欢{% endif %}">♥</button>
+</form>
+
+        </div>
+        <div class="movie-info">
+          <span class="release-year">{{ movie.release_year }}</span>
+          <div class="genres">
+            {% for genre in movie.genres.all|slice:":2" %}
+              <span class="genre-tag">{{ genre.name }}</span>
+            {% endfor %}
+
+            {% with total=movie.genres.count %}
+              {% if total > 2 %}
+                <span class="genre-tag">+{{ total|add:"-2" }}</span>
+              {% endif %}
+            {% endwith %}
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <p class="no-movies">没有找到符合条件的电影</p>
+    {% endfor %}
+  </div>
+
+  <div class="movie-grid">
+    {% for movie in movies %}
+      <!-- 电影卡片内容 -->
+    {% empty %}
+      <p class="no-movies">没有找到符合条件的电影</p>
+    {% endfor %}
+  </div>
+
+</section>
+{% endblock %}
