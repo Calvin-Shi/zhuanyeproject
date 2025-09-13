@@ -1,11 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}注册{% endblock %}
 {% block content %}
-<h1>注册</h1>
-<form method="post" class="card">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit" class="btn primary-btn">注册并登录</button>
-</form>
-<p>已有账号？<a href="{% url 'login' %}">去登录</a></p>
+<div class="container">
+    <form method="post" class="card">
+        <h1>注册</h1>
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn primary-btn" style="width:100%;">注册并登录</button>
+        <p style="text-align:center; margin-top:1rem;">
+            已有账号？<a href="{% url 'login' %}">去登录</a>
+        </p>
+    </form>
+</div>
 {% endblock %}

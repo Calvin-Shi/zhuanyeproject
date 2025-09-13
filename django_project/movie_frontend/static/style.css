@@ -1,315 +1,414 @@
-/* 基础样式重置 */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
 :root {
-    --primary-color: #2c3e50;
-    --secondary-color: #3498db;
-    --accent-color: #e74c3c;
-    --light-color: #ecf0f1;
-    --dark-color: #34495e;
-    --gray-color: #95a5a6;
-    --light-gray: #f5f5f5;
+    --color-background: #14181c;
+    --color-surface: #1e242a;
+    --color-primary: #00e054;
+    --color-text-primary: #e1e3e5;
+    --color-text-secondary: #a4b1c2;
+    --color-border: #2c3440;
+    --navbar-height: 60px;
+    --font-family: 'Roboto', sans-serif;
 }
 
+/* --- 全局样式 --- */
 body {
-    background-color: var(--light-gray);
-    color: var(--primary-color);
-    line-height: 1.6;
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-family);
+    margin: 0;
+    padding-top: var(--navbar-height); /* 为固定导航栏留出空间 */
 }
 
-/* 布局组件 */
-.content {
+/* 新增：当 body 有这个类时，移除顶部内边距，让内容可以顶到最上面 */
+body.full-bleed-header {
+    padding-top: 0;
+}
+
+a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+a:hover {
+    color: #fff;
+    text-decoration: none;
+}
+
+.container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 2rem 1rem;
 }
 
-/* 导航栏样式 */
+h1, h2, h3 {
+    font-weight: 700;
+    color: #fff;
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 1.8rem; margin-bottom: 1.5rem; }
+
+/* --- 导航栏 (核心修改) --- */
 .navbar {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 15px 20px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+    height: var(--navbar-height);
+    padding: 0 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
 }
-
-.logo {
-    font-size: 1.5rem;
-    font-weight: bold;
-}
-
-.nav-links {
+/* MODIFIED: 为了左右布局，新增两个 div */
+.nav-left, .nav-right {
     display: flex;
+    align-items: center;
+    gap: 25px;
+}
+.navbar .logo {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #fff; /* MODIFIED: 确保 Logo 颜色也是白色 */
+}
+.nav-links, .auth-links {
     list-style: none;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    gap: 25px;
+}
+/* MODIFIED: 字体颜色和大小 */
+.nav-links a, .auth-links a, .auth-links .hello {
+    color: #ffffff;
+    font-weight: 500;
+    font-size: 1.3rem; /* 增大字号 */
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5); /* 添加轻微阴影以增强可读性 */
 }
 
-.nav-links li {
-    margin-left: 20px;
+/* --- NEW: 搜索框样式 --- */
+.search-bar {
+    position: relative;
+}
+.search-bar input {
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    padding: 8px 15px 8px 40px; /* 左边留出图标空间 */
+    color: #fff;
+    width: 200px;
+    transition: all 0.3s ease;
+}
+.search-bar input::placeholder {
+    color: #ddd;
+}
+.search-bar input:focus {
+    outline: none;
+    background-color: rgba(255, 255, 255, 0.3);
+    width: 250px; /* 聚焦时变宽 */
+}
+.search-bar button {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+}
+.search-bar button svg {
+    stroke: #fff;
 }
 
-.nav-links a {
-    color: white;
-    text-decoration: none;
-    transition: color 0.3s;
-}
 
-.nav-links a:hover {
-    color: var(--secondary-color);
-}
-
-.nav-links span {
-    color: var(--light-color);
-}
-
-/* 按钮样式 */
+/* --- 按钮 --- */
 .btn {
     display: inline-block;
-    padding: 10px 20px;
-    border-radius: 4px;
-    text-decoration: none;
-    font-weight: bold;
-    transition: all 0.3s;
+    padding: 0.8rem 1.8rem;
+    border-radius: 5px;
+    font-weight: 700;
+    transition: all 0.3s ease;
     border: none;
     cursor: pointer;
 }
-
 .primary-btn {
-    background-color: var(--secondary-color);
-    color: white;
+    background-color: var(--color-primary);
+    color: #000;
 }
-
 .primary-btn:hover {
-    background-color: #2980b9;
+    background-color: #fff;
+    transform: translateY(-2px);
 }
 
-/* 英雄区域样式 */
-.hero {
-    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('../images/hero-bg.jpg');
+/* --- 首页 Hero Section (核心修改) --- */
+.home-hero {
+    height: 100vh; /* MODIFIED: 改为100vh，铺满全屏 */
+    min-height: 450px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     background-size: cover;
     background-position: center;
-    color: white;
-    padding: 100px 20px;
-    text-align: center;
 }
-
+/* 遮罩层 (核心修改) */
+.home-hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    /* MODIFIED: 渐变调整，底部更实，中间到顶部更透明，以看清背景 */
+    background: linear-gradient(to top, var(--color-background) 0%, rgba(20, 24, 28, 0.4) 30%, transparent 70%);
+}
+.hero-content {
+    position: relative; /* 确保在遮罩层之上 */
+    z-index: 2;
+    color: #fff;
+}
 .hero-content h1 {
-    font-size: 2.5rem;
-    margin-bottom: 15px;
+    font-size: 3.5rem;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
 }
-
 .hero-content p {
     font-size: 1.2rem;
-    margin-bottom: 30px;
+    color: var(--color-text-secondary);
 }
 
-/* 电影网格布局 */
+/* --- 电影网格 & 卡片 (核心模仿部分) --- */
 .movie-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
 }
-
 .movie-card {
-    background-color: white;
+    position: relative;
     border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    transition: transform 0.3s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    aspect-ratio: 2 / 3; /* 经典海报比例 */
+    background-color: var(--color-surface);
+    display: block;
 }
-
 .movie-card:hover {
-    transform: translateY(-5px);
+    transform: scale(1.05);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 10;
 }
-
-.movie-title {
-    padding: 15px;
-    font-weight: bold;
+.movie-card .poster-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
-
-.movie-title a {
-    color: var(--primary-color);
-    text-decoration: none;
+.movie-card .poster-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
 }
-
-.movie-title a:hover {
-    color: var(--secondary-color);
+/* 鼠标悬停时的遮罩和标题 */
+.movie-card .overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 1rem;
+    box-sizing: border-box;
 }
-
-.movie-info {
-    padding: 0 15px 15px;
-    color: var(--dark-color);
+.movie-card:hover .overlay {
+    opacity: 1;
+}
+.movie-card .overlay .title {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+.movie-card .overlay .year {
+    color: var(--color-text-secondary);
     font-size: 0.9rem;
 }
 
+
+/* --- 电影详情页 (核心修改) --- */
+.movie-detail-header {
+    width: 100%;
+    height: 60vh;
+    min-height: 400px;
+    position: relative;
+    background-size: cover;
+    /* MODIFIED: 调整背景图垂直位置，让主体内容更居中或偏上一点 */
+    background-position: center 30%;
+}
+/* 遮罩层 (核心修改) */
+.movie-detail-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    /* MODIFIED: 同样调整渐变，让背景更清晰 */
+    background: linear-gradient(to top, var(--color-background) 5%, rgba(20, 24, 28, 0.6) 40%, transparent 80%);
+}
+.detail-header-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.detail-main-info {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-end;
+}
+.detail-poster {
+    width: 200px;
+    border-radius: 8px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+}
+.detail-title-group h1 {
+    margin: 0 0 0.5rem 0;
+}
+.detail-title-group .meta {
+    font-size: 1.1rem;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+.detail-title-group .meta a { color: #fff; font-weight: 700; }
+
+.movie-detail-body {
+    padding-top: 2rem;
+}
+
 .genres {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 5px;
+    display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0;
 }
-
 .genre-tag {
-    background-color: var(--light-color);
-    color: var(--dark-color);
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 0.8rem;
+    background-color: var(--color-surface);
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
 }
-
-/* 电影列表样式 */
-.filters {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+.summary p {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    color: var(--color-text-primary);
 }
-
-.genre-filter {
-    display: flex;
-    align-items: center;
+.cast-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
 }
+.cast-member { font-weight: 500; }
 
-.genre-filter label {
-    margin-right: 10px;
-    font-weight: bold;
+/* --- 表单样式 --- */
+form.card {
+    background: var(--color-surface);
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 500px;
+    margin: 2rem auto;
 }
-
-.genre-filter select {
-    padding: 8px 12px;
+form.card p {
+    margin-bottom: 1.5rem;
+}
+form.card input[type="text"],
+form.card input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
     border-radius: 4px;
-    border: 1px solid var(--gray-color);
+    box-sizing: border-box;
 }
 
-/* 电影详情样式 */
-.movie-header {
-    margin-bottom: 30px;
+/* --- Choose Favorites Page --- */
+.choose-favorites-grid .movie-card {
+    cursor: pointer;
 }
-
-.movie-meta {
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
+.choose-favorites-grid .movie-card .select-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    background-color: rgba(0,0,0,0.7);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    transition: all 0.2s;
+    z-index: 12;
 }
-
-.release-year {
-    font-size: 1.2rem;
-    color: var(--dark-color);
+.choose-favorites-grid input[type="checkbox"] {
+    display: none;
 }
-
-.movie-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-    margin-bottom: 40px;
+.choose-favorites-grid input[type="checkbox"]:checked + .movie-card .select-indicator {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
 }
-
-.movie-summary h2, .movie-details h2 {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--light-color);
+.choose-favorites-grid input[type="checkbox"]:checked + .movie-card {
+    box-shadow: 0 0 0 3px var(--color-primary);
+    transform: scale(1.05);
 }
-
-.detail-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-}
-
-.detail-item h3 {
-    margin-bottom: 5px;
-    color: var(--dark-color);
-    font-size: 1rem;
-}
-
-/* 推荐页面样式 */
-.recommendations-header {
+.actions-bar {
     text-align: center;
-    margin-bottom: 30px;
-}
-
-.error-message {
-    text-align: center;
-    padding: 40px;
-    background-color: var(--light-color);
+    margin-top: 2rem;
+    padding: 1rem;
+    background: var(--color-surface);
     border-radius: 8px;
 }
 
-/* 页脚样式 */
-footer {
-    background-color: var(--primary-color);
-    color: white;
-    text-align: center;
-    padding: 20px;
-    margin-top: 50px;
+/* --- 评论区样式 --- */
+.reviews-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
 }
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .movie-content {
-        grid-template-columns: 1fr;
-    }
-    
-    .detail-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .filters {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    
-    .hero-content h1 {
-        font-size: 2rem;
-    }
+.reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
-
-/* 搜索表单样式 */
-.search-form {
-    margin-right: 20px;
-    display: inline-flex;
+.review-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+.review-header {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
+    margin-bottom: 1rem;
+    color: var(--color-text-secondary);
 }
-
-.search-form input {
-    padding: 8px 12px;
-    border: 1px solid var(--gray-color);
-    border-radius: 4px 0 0 4px;
-    width: 250px;
+.review-source {
+    font-weight: bold;
+    color: var(--color-text-primary);
 }
-
-.search-form .search-btn {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 0 4px 4px 0;
-    cursor: pointer;
+.review-content p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
 }
-
-.search-form .search-btn:hover {
-    background-color: #2980b9;
+/* 新增：为数字分数添加样式 */
+.review-score {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: var(--color-primary);
 }
-
-@media (max-width: 480px) {
-    .nav-links {
-        display: none;
-    }
-    
-    .movie-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    }
-}
-.heart-form { display:inline-block; margin-left: 8px; }
-.heart-btn { border:none; background:transparent; font-size: 1.2rem; cursor:pointer; opacity: 0.6; }
-.heart-btn.liked { opacity: 1; }
-.heart-btn:hover { transform: scale(1.1); }
-.cta { margin: 1rem 0; }

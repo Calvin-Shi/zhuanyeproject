@@ -1,4 +1,3 @@
-
 from django.urls import path
 from . import views
 
@@ -16,3 +15,4 @@ urlpatterns = [
     path('movies/<int:movie_id>/toggle_favorite/', views.toggle_favorite, name='toggle_favorite'),
     path('profile/', views.profile, name='profile'),  # 新增个人资料页路由
 ]
+
