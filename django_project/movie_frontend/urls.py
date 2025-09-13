@@ -14,4 +14,5 @@ urlpatterns = [
     path('recommendations/', views.recommendations, name='recommendations'),
     path('choose-favorites/', views.choose_favorites, name='choose_favorites'),
     path('movies/<int:movie_id>/toggle_favorite/', views.toggle_favorite, name='toggle_favorite'),
+    path('profile/', views.profile, name='profile'),  # 新增个人资料页路由
 ]

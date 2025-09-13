@@ -7,10 +7,12 @@ from django.views.decorators.http import require_POST
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.db import transaction
+from django import forms
+from django.http import JsonResponse
 from django.db.models import Prefetch
 
 from films_recommender_system.models import (
-    Movie, MovieTitle, Genre, Review, Recommendation
+    Movie, MovieTitle, Genre, Review, Recommendation, UserProfile
 )
 
 # -------------------- 工具函数 --------------------
@@ -138,3 +140,65 @@ def toggle_favorite(request, movie_id):
     # 回到来源页
     next_url = request.META.get('HTTP_REFERER') or reverse('movie_frontend:home')
     return HttpResponseRedirect(next_url)
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = UserProfile
+        fields = ['nickname', 'signature']
+        widgets = {
+            'signature': forms.Textarea(attrs={'rows': 3, 'cols': 40}),  # 签名用多行文本框
+        }
+
+
+
+@login_required
+def profile(request):
+    """个人资料视图：展示并允许修改昵称和签名，以及用户喜欢的电影"""
+    # 获取或创建用户资料
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+
+    # 处理表单提交
+    if request.method == 'POST':
+        form = ProfileForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({
+                'status': 'success',
+                'nickname': profile.nickname,
+                'signature': profile.signature
+            })
+        return JsonResponse({'status': 'error', 'errors': form.errors})
+
+    # "喜欢的电影"处理逻辑
+    def _get_fav_ids(request):
+        """获取用户勾选的喜欢的电影ID"""
+        return request.session.get('favorite_movie_ids', [])
+
+    def _attach_display_titles(movies):
+        """为电影添加显示标题"""
+        for movie in movies:
+            primary_title = movie.titles.filter(is_primary=True).first()
+            movie.display_title = primary_title.title_text if primary_title else movie.original_title
+        return movies
+
+    fav_ids = _get_fav_ids(request)
+    favorite_movies = _attach_display_titles(
+        list(Movie.objects.filter(
+            id__in=fav_ids
+        ).prefetch_related(
+            'titles',
+            'genres'
+        ))
+    )
+
+    with transaction.atomic():
+        user_recommendation, _ = Recommendation.objects.get_or_create(user=request.user)
+        user_recommendation.recommended_movies.set(favorite_movies)
+
+    # 传递数据到模板
+    context = {
+        'favorite_movies': favorite_movies,
+        'profile': profile
+    }
+
+    return render(request, 'profile.html', context)

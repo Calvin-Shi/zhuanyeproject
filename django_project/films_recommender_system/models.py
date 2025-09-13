@@ -84,6 +84,13 @@ class Review(models.Model):
         return f"Review for {self.movie.titles.filter(is_primary=True).first()} from {self.source.name}"
 
 # ------ 用户行为模型 ------
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    nickname = models.CharField(max_length=100, blank=True, null=True, help_text='用户昵称')
+    signature = models.TextField(blank=True, null=True, help_text='个人签名')
+
+    def __str__(self):
+        return f"{self.user.username}的资料"
 
 # 用户评价
 class UserReview(models.Model):
