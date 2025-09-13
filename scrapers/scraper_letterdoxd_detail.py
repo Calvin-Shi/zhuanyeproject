@@ -15,8 +15,8 @@ from selenium_stealth import stealth
 # --- 配置区域 ---
 INPUT_CSV_FILE = 'movies_letterdoxd_url.csv'
 OUTPUT_CSV_FILE = 'movies_letterdoxd_details_v10.csv'
-# 新增：指定处理的起始行和结束行（包含结束行）
-# 注意：这里的行号是针对数据行的，不包括CSV文件的表头。第1行指的就是第一条电影数据。
+
+# 这里的行号是针对数据行的，不包括CSV文件的表头。第1行指的就是第一条电影数据。
 START_ROW = 1809  # 从第几行开始处理
 END_ROW = 2008  # 处理到第几行结束（包含此行）
 

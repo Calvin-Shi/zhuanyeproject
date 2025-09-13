@@ -13,8 +13,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium_stealth import stealth
 
 # --- 配置区域 ---
-INPUT_CSV_FILE = 'movies_letterdoxd_details_v19.csv'  # 请确保这是您的输入文件名
-OUTPUT_CSV_FILE = 'reviews_letterdoxd_v14.csv'  # 修改了输出文件名以防覆盖
+INPUT_CSV_FILE = 'movies_letterdoxd_details_v19.csv'  # 确保这是输入文件名
+OUTPUT_CSV_FILE = 'reviews_letterdoxd_v14.csv'
 MOVIES_TO_PROCESS = 5  # 设置为 -1 来处理文件中的所有电影
 PAGES_PER_MOVIE = 2
 
@@ -27,9 +27,8 @@ def setup_driver():
     print("正在设置浏览器驱动 (无头模式)...")
     chrome_options = Options()
 
-    # 【【【 已修改 】】】 重新启用无头模式，实现后台运行
+    # 启用无头模式，实现后台运行
     chrome_options.add_argument("--headless")
-    # 如果需要再次调试，可以注释掉上面一行
 
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
@@ -133,7 +132,6 @@ def scrape_movie_reviews():
                     except NoSuchElementException:
                         score = ""
 
-                    # 【【【 新增功能 】】】
                     # 如果没有抓取到用户名或评分，则直接跳过此条评论
                     if not nickname or not score:
                         continue
@@ -194,7 +192,7 @@ def scrape_movie_reviews():
             writer.writerows(all_reviews_data)
         print("成功将所有抓取到的评论写入CSV文件。")
     except IOError as e:
-        print(f"错误: 无法写入文件 '{OUTPUT_CSV_FILE}'。原因: {e}")
+        print(f"无法写入文件 '{OUTPUT_CSV_FILE}'。原因: {e}")
 
 
 if __name__ == "__main__":
