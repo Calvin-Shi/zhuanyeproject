@@ -140,7 +140,7 @@ class Command(BaseCommand):
                     if created:
                         MovieTitle.objects.create(movie=movie, title_text=original_title, is_primary=False)
                         if row.get('alternative_titles'):
-                            for title in row.get('alternative_titles').split('|'):
+                            for title in row.get('alternative_titles').split('/'):
                                 if title.strip():
                                     MovieTitle.objects.create(
                                         movie=movie, title_text=title.strip(), language='zh-CN', is_primary=False

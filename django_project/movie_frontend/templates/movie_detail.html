@@ -1,91 +1,80 @@
 {% extends 'base.html' %}
-
-
 {% block title %}{{ movie.display_title }} - 电影推荐系统{% endblock %}
 
+{% block body_class %}full-bleed-header{% endblock %}
+
 {% block content %}
-<section class="movie-detail">
-    <div class="movie-header">
-        <h1>{{ movie.display_title }}</h1>
-        <div class="movie-meta">
-            <span class="release-year">{{ movie.release_year }}</span>
-            <div class="genres">
-                {% for genre in movie.genres.all %}
-                    <span class="genre-tag">{{ genre.name }}</span>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
 
-    <div class="movie-content">
-        <div class="movie-summary">
-            <h2>剧情简介</h2>
-            <p>{{ movie.summary|default:"暂无剧情简介" }}</p>
-        </div>
-
-        <div class="movie-details">
-            <h2>电影信息</h2>
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <h3>导演</h3>
-                    <div class="detail-value">
+<!-- 1. 顶部背景图区域 -->
+<div class="movie-detail-header" {% if movie.backdrop_url %}style="background-image: url('{{ movie.backdrop_url }}');"{% endif %}>
+    <div class="detail-header-content">
+        <div class="detail-main-info">
+            <!-- 海报 -->
+            <img src="{{ movie.poster_url }}" alt="{{ movie.display_title }}" class="detail-poster">
+            <!-- 标题和元信息 -->
+            <div class="detail-title-group">
+                <h1>{{ movie.display_title }}</h1>
+                <p class="meta">
+                    {{ movie.release_year }}
+                    {% if movie.directors.all %}
+                        - Directed by
                         {% for director in movie.directors.all %}
-                            <span>{{ director.name }}</span>
-                        {% empty %}
-                            <span>未知</span>
+                            <a>{{ director.name }}</a>{% if not forloop.last %}, {% endif %}
                         {% endfor %}
-                    </div>
-                </div>
-                <div class="detail-item">
-                    <h3>主演</h3>
-                    <div class="detail-value">
-                        {% for actor in movie.actors.all|slice:":5" %}
-                            <span>{{ actor.name }}</span>
-                        {% endfor %}
-                        {% if movie.actors.all.count > 5 %}
-                            <span>等{{ movie.actors.all.count }}人</span>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="detail-item">
-                    <h3>片长</h3>
-                    <div class="detail-value">
-                        {% if movie.length %}
-                            {{ movie.length }}分钟
-                        {% else %}
-                            未知
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="detail-item">
-                    <h3>语言</h3>
-                    <div class="detail-value">{{ movie.language|upper }}</div>
-                </div>
+                    {% endif %}
+                </p>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="movie-reviews">
-        <h2>评论</h2>
-        {% if movie.review_set.exists %}
-            <div class="reviews-list">
-                {% for review in movie.review_set.all|slice:":3" %}
-                    <div class="review-card">
-                        <div class="review-header">
-                            <span class="review-source">{{ review.source.name }}</span>
-                            {% if review.score %}
-                                <span class="review-score">{{ review.score }}/{{ review.score_max }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="review-content">
-                            <p>{{ review.content }}</p>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="no-reviews">暂无评论</p>
-        {% endif %}
+<!-- 2. 主体内容区域 -->
+<div class="container movie-detail-body">
+    <div class="genres">
+        {% for genre in movie.genres.all %}
+            <span class="genre-tag">{{ genre.name }}</span>
+        {% endfor %}
     </div>
-</section>
+
+    {% if movie.summary %}
+    <section class="summary">
+        <h2>剧情简介</h2>
+        <p>{{ movie.summary }}</p>
+    </section>
+    {% endif %}
+
+    {% if movie.actors.all %}
+    <section class="cast">
+        <h2>主演</h2>
+        <div class="cast-grid">
+        {% for actor in movie.actors.all %}
+            <div class="cast-member">{{ actor.name }}</div>
+        {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- MODIFIED: 重新加入评论区代码块 -->
+    <section class="reviews-section">
+        <h2>评论</h2>
+        <div class="reviews-list">
+            {% for review in reviews %}
+                <div class="review-card">
+                    <div class="review-header">
+                        <span class="review-source">{{ review.source.name }}</span>
+                        {% if review.score is not None %}
+                            <!-- 直接显示数字分数 -->
+                            <span class="review-score">{{ review.score|floatformat:1 }}/{{ review.source.score_max|floatformat:0 }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="review-content">
+                        <p>{{ review.content }}</p>
+                    </div>
+                </div>
+            {% empty %}
+                <p>暂无评论。</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
 {% endblock %}

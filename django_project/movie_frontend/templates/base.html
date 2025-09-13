@@ -7,40 +7,45 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'style.css' %}">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
+
 <header>
   <nav class="navbar">
-    <div class="logo">电影推荐系统</div>
-    <ul class="nav-links">
-      <li><a href="{% url 'movie_frontend:home' %}">首页</a></li>
-      <li><a href="{% url 'movie_frontend:movie_list' %}">电影列表</a></li>
-      <li><a href="{% url 'movie_frontend:choose_favorites' %}">选择喜好</a></li>
-      {% if user.is_authenticated %}
-        <li><a href="{% url 'movie_frontend:recommendations' %}">我的推荐</a></li>
-      {% endif %}
-    </ul>
-    <ul class="auth-links">
-      {% if user.is_authenticated %}
-        <li class="hello">你好，{{ user.username }}</li>
-        <a href="{% url 'logout' %}?next={% url 'login' %}">退出登录</a>
-      {% else %}
-        <li><a href="{% url 'login' %}?next=/">登录</a></li>
-        <li><a href="{% url 'movie_frontend:signup' %}">注册</a></li>
-      {% endif %}
-    </ul>
+    <div class="nav-left">
+      <a class="logo" href="{% url 'movie_frontend:home' %}">电影推荐系统</a>
+      <ul class="nav-links">
+        <li><a href="{% url 'movie_frontend:home' %}">首页</a></li>
+        <li><a href="{% url 'movie_frontend:movie_list' %}">电影列表</a></li>
+        <li><a href="{% url 'movie_frontend:choose_favorites' %}">选择喜好</a></li>
+        {% if user.is_authenticated %}
+          <li><a href="{% url 'movie_frontend:recommendations' %}">我的推荐</a></li>
+        {% endif %}
+      </ul>
+    </div>
+    <div class="nav-right">
+      <!-- MODIFIED: 新增搜索栏 -->
+      <form class="search-bar" action="{% url 'movie_frontend:movie_list' %}" method="get">
+        <input type="text" name="q" placeholder="搜索电影..." value="{{ query|default:'' }}">
+        <button type="submit">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </button>
+      </form>
+      <ul class="auth-links">
+        {% if user.is_authenticated %}
+          <li class="hello">你好, {{ user.username }}</li>
+          <li><a href="{% url 'logout' %}?next={% url 'login' %}">退出</a></li>
+        {% else %}
+          <li><a href="{% url 'login' %}?next=/">登录</a></li>
+          <li><a href="{% url 'movie_frontend:signup' %}" class="btn">注册</a></li>
+        {% endif %}
+      </ul>
+    </div>
   </nav>
 </header>
 
-<main class="content">
+<main>
   {% block content %}{% endblock %}
 </main>
-
-<footer>
-  <div class="footer-content">
-    <p>&copy; 2025 电影推荐系统 - 基于Django开发</p>
-  </div>
-</footer>
-
-{% block extra_js %}{% endblock %}
+<!-- ... footer and extra_js ... -->
 </body>
 </html>

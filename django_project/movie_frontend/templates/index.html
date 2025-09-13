@@ -1,49 +1,44 @@
 {% extends 'base.html' %}
-
+{% load static %}
 
 {% block title %}首页 - 电影推荐系统{% endblock %}
 
+{% block body_class %}full-bleed-header{% endblock %}
+
 {% block content %}
-
-<section class="cta">
-  <a class="btn primary-btn" href="{% url 'movie_frontend:choose_favorites' %}">根据你的喜好进行推荐</a>
-</section>
-
-<section class="hero">
+<!-- Hero Section 的 HTML 结构不变，但其样式已在 CSS 中更新为 100vh 高度 -->
+<section class="home-hero" style="background-image: url('{% static 'images/xiaowangzi.jpg' %}');">
     <div class="hero-content">
-        <h1>发现你喜爱的电影</h1>
+        <h1>Track films you've watched.<br>
+            Save those you want to see.<br>
+            Tell your friends what's good.</h1>
         <p>基于你的喜好，为你推荐个性化电影</p>
-        <a href="{% url 'movie_frontend:movie_list' %}" class="btn primary-btn">浏览电影</a>
-        {% load static %}  <!-- 确保已加载 static 标签 -->
-        <link rel="stylesheet" href="{% static 'style.css' %}">
+        <a href="{% url 'movie_frontend:choose_favorites' %}" class="btn primary-btn">开始推荐</a>
     </div>
 </section>
 
-<section class="popular-movies">
-    <h2>热门电影</h2>
-    <div class="movie-grid">
-        {% for movie in movies %}
-            <div class="movie-card">
-                <div class="movie-title">
-                    <a href="{% url 'movie_frontend:movie_detail' movie.id %}">
-                        {{ movie.display_title }}
-                    </a>
-                </div>
-                <div class="movie-info">
-                    <span class="release-year">{{ movie.release_year }}</span>
-                    <div class="genres">
-                        {% for genre in movie.genres.all|slice:":2" %}
-                            <span class="genre-tag">{{ genre.name }}</span>
-                        {% endfor %}
-                        {% if movie.genres.all.count > 2 %}
-                            <span class="genre-tag">+{{ movie.genres.all.count|add:"-2" }}</span>
-                        {% endif %}
+<!-- 原有的热门电影部分 -->
+<!-- MODIFIED: 给 container 增加内联样式，使其与上方有一定间距 -->
+<div class="container" style="margin-top: 3rem;">
+    <section class="popular-movies">
+        <h2>热门电影</h2>
+        <div class="movie-grid">
+            {% for movie in movies %}
+                <a href="{% url 'movie_frontend:movie_detail' movie.id %}" class="movie-card">
+                    {% if movie.poster_url %}
+                        <img src="{{ movie.poster_url }}" alt="{{ movie.display_title }}" class="poster-img">
+                    {% else %}
+                        <div class="poster-placeholder">{{ movie.display_title }}</div>
+                    {% endif %}
+                    <div class="overlay">
+                        <div class="title">{{ movie.display_title }}</div>
+                        <div class="year">{{ movie.release_year }}</div>
                     </div>
-                </div>
-            </div>
-        {% empty %}
-            <p class="no-movies">暂无电影数据</p>
-        {% endfor %}
-    </div>
-</section>
+                </a>
+            {% empty %}
+                <p>暂无电影数据。</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
 {% endblock %}

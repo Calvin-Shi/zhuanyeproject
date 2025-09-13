@@ -1,42 +1,29 @@
 {% extends 'base.html' %}
-
 {% block title %}我的推荐 - 电影推荐系统{% endblock %}
 
 {% block content %}
-<section class="recommendations-header">
-    <h1>为你推荐</h1>
-    <p>基于你的喜好，为你精选以下电影</p>
-</section>
+<div class="container">
+    <section class="recommendations-header">
+        <h1>为你推荐</h1>
+        <p>基于你的喜好，为你精选了以下电影。</p>
+    </section>
 
-{% if error %}
-    <div class="error-message">
-        <p>{{ error }}</p>
-        <a href="{% url 'movie_frontend:movie_list' %}" class="btn primary-btn">去评分电影</a>
-    </div>
-{% else %}
     <div class="movie-grid">
         {% for movie in movies %}
-            <div class="movie-card">
-                <div class="movie-title">
-                    <a href="{% url 'movie_frontend:movie_detail' movie.id %}">
-                        {{ movie.display_title }}
-                    </a>
+            <a href="{% url 'movie_frontend:movie_detail' movie.id %}" class="movie-card">
+                {% if movie.poster_url %}
+                    <img src="{{ movie.poster_url }}" alt="{{ movie.display_title }}" class="poster-img">
+                {% else %}
+                    <div class="poster-placeholder">{{ movie.display_title }}</div>
+                {% endif %}
+                <div class="overlay">
+                    <div class="title">{{ movie.display_title }}</div>
+                    <div class="year">{{ movie.release_year }}</div>
                 </div>
-                <div class="movie-info">
-                    <span class="release-year">{{ movie.release_year }}</span>
-                    <div class="genres">
-                        {% for genre in movie.genres.all|slice:":2" %}
-                            <span class="genre-tag">{{ genre.name }}</span>
-                        {% endfor %}
-                        {% if movie.genres.all.count > 2 %}
-                            <span class="genre-tag">+{{ movie.genres.all.count|add:"-2" }}</span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
+            </a>
         {% empty %}
-            <p class="no-movies">暂无推荐电影</p>
+            <p>还没有为你生成推荐，请先 <a href="{% url 'movie_frontend:choose_favorites' %}">选择你喜欢的电影</a>。</p>
         {% endfor %}
     </div>
-{% endif %}
+</div>
 {% endblock %}
