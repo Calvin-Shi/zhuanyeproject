@@ -118,7 +118,7 @@ def movie_detail(request, movie_id):
 
     setattr(movie, 'display_title', _display_title(movie))
 
-    external_reviews = Review.objects.filter(movie=movie).select_related('source').order_by('-id')[:20]
+    external_reviews = Review.objects.filter(movie=movie).select_related('source').order_by('-content_date')[:20]
     user_reviews = UserReview.objects.filter(movie=movie).select_related('user').order_by('-timestamp')
 
     is_in_watchlist = False

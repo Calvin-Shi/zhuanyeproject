@@ -110,7 +110,7 @@ class Command(BaseCommand):
 
     def _get_movie(self, row, row_num):
         """辅助函数，通过 imdb_id 或 (title+year) 查找电影"""
-        imdb_id = row.get('imdb_id')
+        imdb_id = row.get('imdb_id','')
         original_title = row.get('original_title')
 
         try:
