@@ -4,23 +4,21 @@
 {% block content %}
 <div class="container">
     <section class="movie-list-container">
-        <!-- 筛选器可以后续再美化，这里保持功能 -->
+        <!-- MODIFIED: 新的标签式类型筛选器 -->
         <div class="filters">
-            <form method="get" class="genre-filter">
-                <label for="genre">按类型筛选:</label>
-                <select name="genre" id="genre" onchange="this.form.submit()">
-                    <option value="">所有类型</option>
-                    {% for genre in genres %}
-                        <option value="{{ genre.id }}" {% if selected_genre_id == genre.id %}selected{% endif %}>
-                            {{ genre.name }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </form>
+            <div class="genre-pills">
+                <a href="{% url 'movie_frontend:movie_list' %}" class="genre-pill {% if not selected_genre_id %}active{% endif %}">所有类型</a>
+                {% for genre in genres %}
+                    <a href="?genre={{ genre.id }}" class="genre-pill {% if selected_genre_id == genre.id %}active{% endif %}">
+                        {{ genre.name }}
+                    </a>
+                {% endfor %}
+            </div>
         </div>
 
         <div class="movie-grid">
-            {% for movie in movies %}
+            <!-- MODIFIED: 循环 page_obj.object_list -->
+            {% for movie in page_obj.object_list %}
                 <a href="{% url 'movie_frontend:movie_detail' movie.id %}" class="movie-card">
                     {% if movie.poster_url %}
                         <img src="{{ movie.poster_url }}" alt="{{ movie.display_title }}" class="poster-img">
@@ -36,6 +34,10 @@
                 <p>没有找到符合条件的电影。</p>
             {% endfor %}
         </div>
+
+        <!-- NEW: 引入分页控件 -->
+        {% include 'partials/_pagination.html' with page_obj=page_obj %}
+
     </section>
 </div>
 {% endblock %}

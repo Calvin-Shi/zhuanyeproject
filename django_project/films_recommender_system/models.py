@@ -103,8 +103,15 @@ class UserProfile(models.Model):
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, help_text='用户头像')
     profile_background = models.ImageField(upload_to='backgrounds/', null=True, blank=True, help_text='个人中心背景图')
 
-    # 新增：我的收藏/待看列表
+    # 收藏/待看列表
     watchlist = models.ManyToManyField(Movie, related_name='watchlisted_by', blank=True)
+
+    # --- 新增：用户的偏好 ---
+    # Person模型同时代表演员和导演，因此一个字段即可
+    favorite_people = models.ManyToManyField(Person, related_name='favorited_by_users', blank=True,
+                                             help_text="用户喜欢的演员/导演")
+    favorite_genres = models.ManyToManyField(Genre, related_name='favorited_by_users', blank=True,
+                                             help_text="用户喜欢的电影类型")
 
     def __str__(self):
         return f"{self.user.username}的资料"

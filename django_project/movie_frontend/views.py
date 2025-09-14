@@ -1,3 +1,5 @@
+from django.http import JsonResponse
+import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
@@ -12,13 +14,14 @@ from django.db.models import F
 
 from films_recommender_system.models import (
     Movie, MovieTitle, Genre, Review, Recommendation, UserProfile,
-    UserReview, BrowsingHistory
+    UserReview, BrowsingHistory,Person
 )
 from .forms import (
     ProfileInfoForm, UserEmailForm, AvatarUploadForm, BackgroundUploadForm,UserReviewForm
 )
 
 from django.http import HttpResponseForbidden
+from django.core.paginator import Paginator
 
 
 # 其他的工具函数
@@ -79,22 +82,31 @@ def home(request):
 
 
 def movie_list(request):
-    qs = Movie.objects.all().prefetch_related('titles', 'genres')
+    qs = Movie.objects.all().prefetch_related('titles', 'genres').order_by('-release_year')
+
     search_query = request.GET.get('q')
     if search_query:
         qs = qs.filter(
             Q(titles__title_text__icontains=search_query) | Q(original_title__icontains=search_query)).distinct()
+
     selected_genre_id = request.GET.get('genre')
     if selected_genre_id and selected_genre_id.isdigit():
         gid = int(selected_genre_id)
         qs = qs.filter(genres__id=gid)
-    movies = _attach_display_titles(list(qs))
+
+    # --- 分页逻辑 ---
+    paginator = Paginator(qs, 24)  # 每页显示24部电影
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    movies_with_titles = _attach_display_titles(list(page_obj.object_list))
+    page_obj.object_list = movies_with_titles  # 用处理过的列表替换
+
     genres = list(Genre.objects.all())
     context = {
-        'movies': movies,
+        'page_obj': page_obj,  # 传递 page_obj 而不是 movies
         'genres': genres,
         'selected_genre_id': int(selected_genre_id) if selected_genre_id and selected_genre_id.isdigit() else None,
-        'fav_ids': _get_fav_ids(request),
         'query': search_query,
     }
     return render(request, 'movie_list.html', context)
@@ -255,15 +267,107 @@ def recommendations(request):
 
 def choose_favorites(request):
     if request.method == 'POST':
-        ids = set(map(int, request.POST.getlist('favorites')))
-        _set_fav_ids(request, ids)
+        # MODIFIED: 读取由JS动态生成的完整喜好列表
+        favorite_ids_str = request.POST.get('favorite_ids_json', '[]')
+        try:
+            ids = set(map(int, json.loads(favorite_ids_str)))
+        except (json.JSONDecodeError, ValueError):
+            ids = set()
+
+        # Session 和 数据库同步更新为最终状态
+        _set_fav_ids(request, list(ids))
         if request.user.is_authenticated:
             rec, _ = Recommendation.objects.get_or_create(user=request.user)
             rec.favorite_movies.set(Movie.objects.filter(id__in=ids))
         return redirect('movie_frontend:recommendations')
-    movies = _attach_display_titles(list(Movie.objects.all().prefetch_related('titles', 'genres')))
-    return render(request, 'choose_favorites.html', {'movies': movies, 'fav_ids': _get_fav_ids(request)})
 
+    # --- GET 请求处理 (与上一版完全相同) ---
+    query = request.GET.get('q', '').strip()
+    main_tab = request.GET.get('main_tab', 'search')
+    sub_tab = request.GET.get('sub_tab', 'directors')
+
+    all_genres = Genre.objects.all().order_by('name')
+    directors_qs = Person.objects.filter(directed_movies__isnull=False).distinct().order_by('name')
+    actors_qs = Person.objects.filter(acted_in_movies__isnull=False).distinct().order_by('name')
+
+    movies_qs = Movie.objects.all().prefetch_related('titles').order_by('-release_year')
+    if query:
+        movies_qs = movies_qs.filter(
+            Q(titles__title_text__icontains=query) | Q(original_title__icontains=query) |
+            Q(directors__name__icontains=query) | Q(actors__name__icontains=query)
+        ).distinct()
+
+    movies_paginator = Paginator(movies_qs, 18)
+    directors_paginator = Paginator(directors_qs, 30)
+    actors_paginator = Paginator(actors_qs, 30)
+    page_number = request.GET.get('page', 1)
+    page_obj_movies = movies_paginator.get_page(page_number)
+    page_obj_directors = directors_paginator.get_page(page_number)
+    page_obj_actors = actors_paginator.get_page(page_number)
+    movies_with_titles = _attach_display_titles(list(page_obj_movies.object_list))
+    page_obj_movies.object_list = movies_with_titles
+
+    favorite_people_ids, favorite_genre_ids, initial_favorite_movie_ids = set(), set(), []
+    if request.user.is_authenticated:
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        favorite_people_ids = set(profile.favorite_people.values_list('id', flat=True))
+        favorite_genre_ids = set(profile.favorite_genres.values_list('id', flat=True))
+        rec, _ = Recommendation.objects.get_or_create(user=request.user)
+        initial_favorite_movie_ids = list(rec.favorite_movies.values_list('id', flat=True))
+        _set_fav_ids(request, initial_favorite_movie_ids)
+
+    context = {
+        'page_obj_movies': page_obj_movies,
+        'page_obj_directors': page_obj_directors,
+        'page_obj_actors': page_obj_actors,
+        'all_genres': all_genres,
+        'main_tab': main_tab,
+        'sub_tab': sub_tab,
+        'query': query,
+        'favorite_people_ids': favorite_people_ids,
+        'favorite_genre_ids': favorite_genre_ids,
+        'initial_favorite_movie_ids_json': json.dumps(initial_favorite_movie_ids),
+    }
+    return render(request, 'choose_favorites.html', context)
+
+
+# --- 新增：处理AJAX请求的视图 ---
+@require_POST
+@login_required
+def toggle_favorite_entity(request):
+    try:
+        data = json.loads(request.body)
+        entity_type = data.get('entity_type')
+        entity_id = data.get('entity_id')
+
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        action = ''
+
+        if entity_type == 'person':
+            person = get_object_or_404(Person, pk=entity_id)
+            if profile.favorite_people.filter(pk=person.id).exists():
+                profile.favorite_people.remove(person)
+                action = 'removed'
+            else:
+                profile.favorite_people.add(person)
+                action = 'added'
+
+        elif entity_type == 'genre':
+            genre = get_object_or_404(Genre, pk=entity_id)
+            if profile.favorite_genres.filter(pk=genre.id).exists():
+                profile.favorite_genres.remove(genre)
+                action = 'removed'
+            else:
+                profile.favorite_genres.add(genre)
+                action = 'added'
+
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Invalid entity type'}, status=400)
+
+        return JsonResponse({'status': 'ok', 'action': action})
+
+    except (json.JSONDecodeError, KeyError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
 @require_POST
 @login_required

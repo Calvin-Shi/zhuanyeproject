@@ -20,4 +20,7 @@ urlpatterns = [
 
     # --- 新增点赞URL ---
     path('review/<int:review_id>/like/', views.like_review, name='like_review'),
+
+    # --- 新增：统一的、处理偏好切换的AJAX接口 ---
+    path('favorites/toggle_entity/', views.toggle_favorite_entity, name='toggle_favorite_entity'),
 ]
