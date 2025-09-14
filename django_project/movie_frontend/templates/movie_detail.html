@@ -74,23 +74,101 @@
     </section>
     {% endif %}
 
+    <!-- MODIFIED: 评论区重构 -->
+
     <section class="reviews-section">
-        <h2>评论</h2>
+
+        <!-- 新增: 发表评论表单 -->
+        {% if user.is_authenticated %}
+        <div class="comment-form-container card">
+            <h2>发表你的看法</h2>
+            <form id="comment-form" method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="{{ review_form.rating.id_for_label }}">{{ review_form.rating.label }}</label>
+                    {{ review_form.rating }}
+                    {% if review_form.rating.help_text %}<small class="form-help-text">{{ review_form.rating.help_text }}</small>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ review_form.review.id_for_label }}">{{ review_form.review.label }}</label>
+                    {{ review_form.review }}
+                </div>
+                {% if review_form.errors %}{% for field, errors in review_form.errors.items %}{% for error in errors %}<p class="form-error">{{ error }}</p>{% endfor %}{% endfor %}{% endif %}
+                <button type="submit" class="btn primary-btn">发布评论</button>
+            </form>
+        </div>
+        {% else %}
+        <p><a href="{% url 'login' %}?next={{ request.path }}">登录</a>后即可发表评论。</p>
+        {% endif %}
+
+        <!-- 新增: 本站用户评论 -->
+        <h2 style="margin-top: 3rem;">用户评论</h2>
         <div class="reviews-list">
-            {% for review in reviews %}
+            {% for review in user_reviews %}
                 <div class="review-card">
                     <div class="review-header">
-                        <span class="review-source">{{ review.source.name }}</span>
+                        <div class="review-author-info">
+                            <span class="review-source">{{ review.user.username }}</span>
+                            <small class="review-timestamp">{{ review.timestamp|date:"Y-m-d H:i" }}</small>
+                        </div>
+                        <span class="review-score">{{ review.rating|floatformat:1 }}/10.0</span>
+                    </div>
+                    <div class="review-content">
+                        <p>{{ review.review|linebreaksbr }}</p>
+                    </div>
+                    <div class="review-footer">
+                        <!-- MODIFIED: 点赞功能实现 -->
+                        <div class="like-section">
+                            <form action="{% url 'movie_frontend:like_review' review.id %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-like {% if review.id in liked_review_ids %}liked{% endif %}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                </button>
+                            </form>
+                            <span>赞同数: {{ review.likes_count }}</span>
+                        </div>
+                        {% if request.user == review.user %}
+                            <div class="review-actions">
+                                <a href="{% url 'movie_frontend:edit_review' review.id %}" class="btn-edit">编辑</a>
+                                <form action="{% url 'movie_frontend:delete_review' review.id %}" method="post" onsubmit="return confirm('确定要删除这条评论吗？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-delete">删除</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                <p>暂无用户评论，快来抢沙发吧！</p>
+            {% endfor %}
+        </div>
+
+        <!-- 外部网站评论 -->
+        <h2 style="margin-top: 3rem;">外部评论</h2>
+        <div class="reviews-list">
+            {% for review in external_reviews %}
+                <div class="review-card">
+                    <div class="review-header">
+                        <div class="review-author-info">
+                           <span class="review-source">{{ review.source.name }} {% if review.author %}(by {{ review.author }}){% endif %}</span>
+                           {% if review.content_date %}<small class="review-timestamp">{{ review.content_date|date:"Y-m-d" }}</small>{% endif %}
+                        </div>
                         {% if review.score is not None %}
-                            <span class="review-score">{{ review.score|floatformat:1 }}/{{ review.source.score_max|floatformat:0 }}</span>
+                            <!-- MODIFIED: 修正分值上限显示 -->
+                            <span class="review-score">{{ review.score|floatformat:1 }}/{{ review.source.score_max|floatformat:1 }}</span>
                         {% endif %}
                     </div>
                     <div class="review-content">
                         <p>{{ review.content }}</p>
                     </div>
+                     {% if review.approvals_num is not None %}
+                    <div class="review-footer">
+                       <span>赞同数: {{ review.approvals_num }}</span>
+                    </div>
+                    {% endif %}
                 </div>
             {% empty %}
-                <p>暂无评论。</p>
+                <p>暂无外部评论。</p>
             {% endfor %}
         </div>
     </section>
