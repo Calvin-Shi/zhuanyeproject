@@ -8,17 +8,20 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.db import transaction
 from django.db.models import Prefetch, Q
+from django.db.models import F
 
 from films_recommender_system.models import (
     Movie, MovieTitle, Genre, Review, Recommendation, UserProfile,
     UserReview, BrowsingHistory
 )
 from .forms import (
-    ProfileInfoForm, UserEmailForm, AvatarUploadForm, BackgroundUploadForm
+    ProfileInfoForm, UserEmailForm, AvatarUploadForm, BackgroundUploadForm,UserReviewForm
 )
 
+from django.http import HttpResponseForbidden
 
-# ... (你其他的工具函数在这里，无需改动) ...
+
+# 其他的工具函数
 def _display_title(movie):
     primary_title = movie.titles.filter(is_primary=True, language__icontains='zh').first()
     if not primary_title: primary_title = movie.titles.filter(is_primary=True).first()
@@ -100,23 +103,115 @@ def movie_list(request):
 def movie_detail(request, movie_id):
     movie = get_object_or_404(
         Movie.objects.prefetch_related('titles', 'genres', 'directors', 'actors', 'scriptwriters'), pk=movie_id)
+
+    if request.method == 'POST' and 'review' in request.POST and request.user.is_authenticated:
+        review_form = UserReviewForm(request.POST, user=request.user, movie=movie)
+        if review_form.is_valid():
+            new_review = review_form.save(commit=False)
+            new_review.user = request.user
+            new_review.movie = movie
+            new_review.save()
+            messages.success(request, "你的评论已成功发布！")
+            return redirect('movie_frontend:movie_detail', movie_id=movie.id)
+    else:
+        review_form = UserReviewForm()
+
     setattr(movie, 'display_title', _display_title(movie))
-    reviews = Review.objects.filter(movie=movie).select_related('source').order_by('-id')[:20]
+
+    external_reviews = Review.objects.filter(movie=movie).select_related('source').order_by('-id')[:20]
+    user_reviews = UserReview.objects.filter(movie=movie).select_related('user').order_by('-timestamp')
+
     is_in_watchlist = False
     is_in_favorites = False
+    liked_review_ids = set()  # 新增: 初始化一个空集合
+
     if request.user.is_authenticated:
         BrowsingHistory.objects.update_or_create(user=request.user, movie=movie)
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         is_in_watchlist = profile.watchlist.filter(pk=movie.id).exists()
         is_in_favorites = movie.id in _get_fav_ids(request)
+
+        # 新增: 获取当前用户已点赞的评论ID
+        liked_review_ids = set(
+            UserReview.objects.filter(
+                id__in=user_reviews.values_list('id', flat=True),
+                liked_by=request.user
+            ).values_list('id', flat=True)
+        )
+
     context = {
         'movie': movie,
-        'reviews': reviews,
+        'external_reviews': external_reviews,
+        'user_reviews': user_reviews,
+        'review_form': review_form,
         'fav_ids': _get_fav_ids(request),
         'is_in_watchlist': is_in_watchlist,
         'is_in_favorites': is_in_favorites,
+        'liked_review_ids': liked_review_ids,  # 传递到模板
     }
     return render(request, 'movie_detail.html', context)
+
+
+# --- 新增点赞视图 ---
+@require_POST
+@login_required
+def like_review(request, review_id):
+    review = get_object_or_404(UserReview, pk=review_id)
+    user = request.user
+
+    # 检查用户是否已经点赞
+    if user in review.liked_by.all():
+        # 如果已点赞，则取消
+        review.liked_by.remove(user)
+        # 使用F()表达式确保原子性操作，防止竞争条件
+        review.likes_count = F('likes_count') - 1
+    else:
+        # 如果未点赞，则添加
+        review.liked_by.add(user)
+        review.likes_count = F('likes_count') + 1
+
+    review.save()
+
+    # 重定向回电影详情页
+    return redirect('movie_frontend:movie_detail', movie_id=review.movie.id)
+
+
+# --- 新增视图 ---
+
+@login_required
+def edit_review(request, review_id):
+    review = get_object_or_404(UserReview, pk=review_id)
+
+    # 权限检查：确保是评论作者本人
+    if request.user != review.user:
+        return HttpResponseForbidden("你没有权限修改他人的评论。")
+
+    if request.method == 'POST':
+        form = UserReviewForm(request.POST, instance=review, user=request.user, movie=review.movie)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "评论修改成功！")
+            return redirect('movie_frontend:movie_detail', movie_id=review.movie.id)
+    else:
+        form = UserReviewForm(instance=review)
+
+    # 创建一个单独的模板来处理编辑
+    return render(request, 'edit_review.html', {'form': form, 'review': review})
+
+
+@require_POST
+@login_required
+def delete_review(request, review_id):
+    review = get_object_or_404(UserReview, pk=review_id)
+    movie_id = review.movie.id
+
+    # 权限检查
+    if request.user != review.user:
+        return HttpResponseForbidden("你没有权限删除他人的评论。")
+
+    review.delete()
+    messages.success(request, "评论已删除。")
+    return redirect('movie_frontend:movie_detail', movie_id=movie_id)
 
 
 # MODIFIED: 重写 toggle_favorite 视图

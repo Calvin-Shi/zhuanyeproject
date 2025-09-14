@@ -721,3 +721,120 @@ form.card input[type="password"] {
     margin-top: 0.5rem;
     cursor: pointer;
 }
+
+/* --- 电影详情页评论区增强 --- */
+.comment-form-container.card {
+    background-color: var(--color-surface);
+    padding: 2rem;
+    border-radius: 8px;
+    margin-bottom: 3rem;
+}
+
+#comment-form .form-group select,
+#comment-form .form-group textarea {
+    width: 100%;
+    padding: 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    border-radius: 4px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+    font-family: var(--font-family);
+    font-size: 1rem;
+}
+
+#comment-form .form-group select:focus,
+#comment-form .form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* 改为 flex-start 以对齐多行内容 */
+}
+
+.review-author-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.review-timestamp {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    margin-top: 0.25rem;
+}
+
+.review-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+}
+
+.review-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.review-actions a,
+.review-actions button {
+    background: none;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.review-actions a:hover,
+.review-actions button:hover {
+    color: var(--color-primary);
+}
+
+.btn-delete {
+    color: #ff4581;
+}
+.btn-delete:hover {
+    color: #ff78a3;
+}
+
+/* --- 评论区点赞功能样式 --- */
+.like-section {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.btn-like {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-like svg {
+    stroke: var(--color-text-secondary);
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-like:hover svg {
+    stroke: #ff4581;
+    transform: scale(1.1);
+}
+
+/* 已点赞状态 */
+.btn-like.liked svg {
+    stroke: #ff4581;
+    fill: #ff4581;
+}

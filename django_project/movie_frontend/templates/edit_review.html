@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}编辑评论{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>编辑你的评论</h1>
+    <p>关于电影: <strong>{{ review.movie.display_title }}</strong></p>
+    
+    <form method="post" class="profile-form card" style="max-width: 800px; margin: 2rem auto;">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="{{ form.rating.id_for_label }}">{{ form.rating.label }}</label>
+            {{ form.rating }}
+            {% if form.rating.help_text %}<small class="form-help-text">{{ form.rating.help_text }}</small>{% endif %}
+        </div>
+        <div class="form-group">
+            <label for="{{ form.review.id_for_label }}">{{ form.review.label }}</label>
+            {{ form.review }}
+        </div>
+        
+        {% if form.errors %}
+            <div class="form-errors">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        <button type="submit" class="btn primary-btn">保存修改</button>
+        <a href="{% url 'movie_frontend:movie_detail' review.movie.id %}" style="margin-left: 1rem;">取消</a>
+    </form>
+</div>
+{% endblock %}

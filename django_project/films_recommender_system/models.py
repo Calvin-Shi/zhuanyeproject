@@ -74,7 +74,7 @@ class Source(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text='数据来源网站(e.g. IMDb，豆瓣)')
     base_url = models.URLField(help_text='网站主页链接')
     credibility_level = models.IntegerField(default=5, help_text='预设的可信度等级(1-10)，用于加权')
-    score_max = models.FloatField(default=10, help_text='该评分体系满分值，用于后续进行归一化处理')
+    score_max = models.FloatField(default=5, help_text='该评分体系满分值，用于后续进行归一化处理')
 
     def __str__(self): return self.name
 
@@ -112,16 +112,19 @@ class UserProfile(models.Model):
 
 # 真值电影推荐网站用户评价信息
 class UserReview(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, help_text='评分用户')
-    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, help_text='评价的电影')
-    rating = models.IntegerField(help_text='用户评分(e.g. 1-5)')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews', help_text='评分用户')
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='user_reviews', help_text='评价的电影')
+    rating = models.FloatField(help_text='用户评分 (e.g. 1.0-10.0)')
     review = models.TextField(help_text='用户评论')
     timestamp = models.DateTimeField(auto_now_add=True)
+    likes_count = models.IntegerField(default=0, help_text='该评论被赞同数')
+
+    # 新增: 记录哪些用户赞同了这条评论
+    liked_by = models.ManyToManyField(User, related_name='liked_reviews', blank=True)
 
     class Meta:
-        # 确保一个用户对一部电影只能有一个评分
-        unique_together = ('user', 'movie')
-        ordering = ['-timestamp']  # 按时间倒序
+        # 按时间倒序排列评论
+        ordering = ['-timestamp']
 
     def __str__(self):
         primary_title = self.movie.titles.filter(is_primary=True).first()
