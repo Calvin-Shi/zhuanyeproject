@@ -1,15 +1,80 @@
 {% extends 'base.html' %}
-{% block title %}选择你喜欢的电影{% endblock %}
+{% block title %}选择你的喜好{% endblock %}
+
 {% block content %}
 <div class="container">
-    <h1>选择你喜欢的电影</h1>
-    <p>选择一些你喜欢的电影，我们将以此为你推荐。</p>
-    <form method="post">
+    <h1>选择你的喜好</h1>
+    <p>你可以直接添加喜欢的演员、导演或电影类型，也可以在下方勾选具体的电影。</p>
+
+    <!-- 选项卡式发现中心 -->
+    <div class="browse-container card">
+        <div class="browse-tabs">
+            <button class="tab-button" data-tab="search">搜索</button>
+            <button class="tab-button" data-tab="genres">电影类型</button>
+            <button class="tab-button" data-tab="people">导演/演员</button>
+        </div>
+        <div class="tab-content-container">
+            <!-- 搜索选项卡 -->
+            <div class="tab-pane" id="tab-search">
+                <form method="get" class="entity-search-form">
+                    <div class="search-bar-wrapper">
+                        <input type="text" name="q" placeholder="搜索电影名、演员、导演或类型..." value="{{ query|default:'' }}" class="search-input">
+                        <button type="submit" class="btn primary-btn search-submit-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <span>搜索</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <!-- 浏览类型选项卡 -->
+            <div class="tab-pane" id="tab-genres">
+                <div class="entity-pills-grid">
+                    {% for genre in all_genres %}
+                    <button type="button" class="entity-pill btn-toggle-entity {% if genre.id in favorite_genre_ids %}added{% endif %}" data-entity-type="genre" data-entity-id="{{ genre.id }}" data-entity-name="{{ genre.name }}">
+                        {% if genre.id in favorite_genre_ids %}✓ {% endif %}{{ genre.name }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            <!-- 发现人物选项卡 -->
+            <div class="tab-pane" id="tab-people">
+                <div class="sub-tabs">
+                    <a href="?main_tab=people&sub_tab=directors" class="sub-tab-button {% if sub_tab == 'directors' or not sub_tab or sub_tab == 'movies' %}active{% endif %}">导演</a>
+                    <a href="?main_tab=people&sub_tab=actors" class="sub-tab-button {% if sub_tab == 'actors' %}active{% endif %}">演员</a>
+                </div>
+
+                <div id="directors-pane" class="sub-tab-pane {% if sub_tab == 'directors' or not sub_tab or sub_tab == 'movies' %}active{% endif %}">
+                    <div class="entity-pills-grid">
+                        {% for person in page_obj_directors.object_list %}
+                        <button type="button" class="entity-pill btn-toggle-entity {% if person.id in favorite_people_ids %}added{% endif %}" data-entity-type="person" data-entity-id="{{ person.id }}" data-entity-name="{{ person.name }}">
+                            {% if person.id in favorite_people_ids %}✓ {% endif %}{{ person.name }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                    {% include 'partials/_pagination.html' with page_obj=page_obj_directors main_tab_name='people' sub_tab_name='directors' query=query %}
+                </div>
+
+                <div id="actors-pane" class="sub-tab-pane {% if sub_tab == 'actors' %}active{% endif %}">
+                    <div class="entity-pills-grid">
+                        {% for person in page_obj_actors.object_list %}
+                         <button type="button" class="entity-pill btn-toggle-entity {% if person.id in favorite_people_ids %}added{% endif %}" data-entity-type="person" data-entity-id="{{ person.id }}" data-entity-name="{{ person.name }}">
+                            {% if person.id in favorite_people_ids %}✓ {% endif %}{{ person.name }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                    {% include 'partials/_pagination.html' with page_obj=page_obj_actors main_tab_name='people' sub_tab_name='actors' query=query %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 style="margin-top: 2rem;">电影列表</h2>
+    <form method="post" id="favorites-form">
         {% csrf_token %}
         <div class="movie-grid choose-favorites-grid">
-            {% for movie in movies %}
+            {% for movie in page_obj_movies.object_list %}
                 <label>
-                    <input type="checkbox" name="favorites" value="{{ movie.id }}" {% if movie.id in fav_ids %}checked{% endif %}>
+                    <input type="checkbox" name="favorites" value="{{ movie.id }}" class="favorite-checkbox">
                     <div class="movie-card">
                         <div class="select-indicator"></div>
                         {% if movie.poster_url %}
@@ -20,12 +85,141 @@
                     </div>
                 </label>
             {% empty %}
-                <p>暂无电影数据。</p>
+                <p>没有找到符合条件的电影。</p>
             {% endfor %}
         </div>
-        <div class="actions-bar">
-            <button type="submit" class="btn primary-btn">提交喜好，查看推荐</button>
-        </div>
+        {% include 'partials/_pagination.html' with page_obj=page_obj_movies main_tab_name='movies' sub_tab_name='' query=query %}
     </form>
 </div>
+
+<div id="floating-actions-bar" class="actions-bar floating">
+    <div class="container">
+        <span id="selection-counter">已选择 0 部电影</span>
+        <button type="submit" form="favorites-form" class="btn primary-btn">提交喜好，查看推荐</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const body = document.body;
+    const floatingBar = document.getElementById('floating-actions-bar');
+    const counter = document.getElementById('selection-counter');
+    const allCheckboxes = document.querySelectorAll('.favorite-checkbox');
+    const form = document.getElementById('favorites-form');
+
+    // --- 状态持久化核心逻辑 ---
+    const storageKey = 'favoriteMovieSelection_{{ user.id|default:"guest" }}';
+    let selectedMovieIds;
+    const storedData = localStorage.getItem(storageKey);
+
+    if (storedData) {
+        selectedMovieIds = new Set(JSON.parse(storedData));
+    } else {
+        selectedMovieIds = new Set({{ initial_favorite_movie_ids_json|safe }});
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(selectedMovieIds)));
+    }
+
+    function saveSelection() {
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(selectedMovieIds)));
+    }
+
+    function updateUI() {
+        allCheckboxes.forEach(checkbox => {
+            checkbox.checked = selectedMovieIds.has(parseInt(checkbox.value));
+        });
+        const count = selectedMovieIds.size;
+        if (count > 0) {
+            counter.textContent = `已选择 ${count} 部电影`;
+            floatingBar.classList.add('visible');
+            body.classList.add('floating-bar-active');
+        } else {
+            floatingBar.classList.remove('visible');
+            body.classList.remove('floating-bar-active');
+        }
+    }
+
+    allCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            const movieId = parseInt(checkbox.value);
+            if (checkbox.checked) {
+                selectedMovieIds.add(movieId);
+            } else {
+                selectedMovieIds.delete(movieId);
+            }
+            saveSelection();
+            updateUI();
+        });
+    });
+
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'favorite_ids_json';
+        hiddenInput.value = JSON.stringify(Array.from(selectedMovieIds));
+        this.appendChild(hiddenInput);
+        localStorage.removeItem(storageKey);
+        this.submit();
+    });
+
+    // --- AJAX 偏好逻辑 ---
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    document.querySelectorAll('.btn-toggle-entity').forEach(button => {
+        const entityName = button.dataset.entityName;
+        button.addEventListener('click', function() {
+            const entityType = this.dataset.entityType;
+            const entityId = this.dataset.entityId;
+
+            fetch("{% url 'movie_frontend:toggle_favorite_entity' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    entity_type: entityType,
+                    entity_id: entityId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    if (data.action === 'added') {
+                        this.innerHTML = `✓ ${entityName}`;
+                        this.classList.add('added');
+                    } else {
+                        this.innerHTML = entityName;
+                        this.classList.remove('added');
+                    }
+                } else {
+                    alert('操作失败，请稍后重试。');
+                }
+            });
+        });
+    });
+
+    // --- 选项卡切换逻辑 ---
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    function activateMainTab(tabId) {
+        tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+        tabPanes.forEach(pane => pane.classList.toggle('active', pane.id === 'tab-' + tabId));
+    }
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            activateMainTab(this.dataset.tab);
+        });
+    });
+
+    const initialMainTab = "{{ main_tab|default:'search' }}";
+    activateMainTab(initialMainTab);
+
+    // 页面加载时初始化UI
+    updateUI();
+});
+</script>
 {% endblock %}

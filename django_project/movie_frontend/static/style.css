@@ -838,3 +838,327 @@ form.card input[type="password"] {
     stroke: #ff4581;
     fill: #ff4581;
 }
+
+/* --- 分页控件样式 --- */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2.5rem;
+    padding: 1rem;
+    background-color: var(--color-surface);
+    border-radius: 8px;
+}
+.pagination-links {
+    display: flex;
+    gap: 0.5rem;
+}
+.pagination-links a, .pagination-links span {
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    text-decoration: none;
+    color: var(--color-text-secondary);
+}
+.pagination-links a:hover {
+    background-color: var(--color-border);
+    color: #fff;
+}
+.pagination-links .current {
+    background-color: var(--color-primary);
+    color: #000;
+    font-weight: bold;
+}
+.page-info {
+    color: var(--color-text-secondary);
+}
+
+/* --- 电影列表页：标签式类型筛选器 --- */
+.filters {
+    margin-bottom: 2rem;
+}
+.genre-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+}
+.genre-pill {
+    display: inline-block;
+    padding: 0.6rem 1.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+.genre-pill:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+.genre-pill.active {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #000;
+    font-weight: bold;
+}
+
+/* --- 选择喜好页：筛选栏 --- */
+.favorites-filter-form {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    align-items: center;
+    background-color: var(--color-surface);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+.favorites-filter-form .search-input,
+.favorites-filter-form .genre-select {
+    padding: 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+.favorites-filter-form .search-input {
+    flex-grow: 1; /* 占据更多空间 */
+}
+
+/* --- 选择喜好页：浮动提交栏 --- */
+.actions-bar.floating {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(30, 36, 42, 0.95); /* 带透明度的背景 */
+    backdrop-filter: blur(10px);
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--color-border);
+    z-index: 1001;
+    transform: translateY(100%); /* 默认隐藏在屏幕下方 */
+    transition: transform 0.3s ease-in-out;
+}
+.actions-bar.floating.visible {
+    transform: translateY(0); /* 显示 */
+}
+.actions-bar.floating .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 1rem; /* 调整内边距 */
+}
+#selection-counter {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* --- 选择喜好页：实体偏好按钮样式 --- */
+.btn-toggle-entity {
+    background: none;
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    padding: 0.4rem 0.8rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+.btn-toggle-entity:hover {
+    background-color: var(--color-primary);
+    color: #000;
+}
+
+/* 新增：已添加状态的样式 */
+.btn-toggle-entity.added {
+    background-color: var(--color-primary);
+    color: #000;
+    border-color: var(--color-primary);
+}
+
+/* --- 选择喜好页：选项卡式发现中心 --- */
+.browse-container.card {
+    background-color: var(--color-surface);
+    padding: 0; /* 移除内边距，由内部元素控制 */
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    overflow: hidden; /* 确保圆角生效 */
+}
+
+.browse-tabs {
+    display: flex;
+    background-color: var(--color-background); /* 比卡片颜色稍深 */
+}
+
+.tab-button {
+    flex-grow: 1;
+    padding: 1rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--color-text-secondary);
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+    background-color: var(--color-surface);
+    color: #fff;
+}
+
+.tab-button.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+}
+
+.tab-content-container {
+    padding: 2rem;
+}
+
+.tab-pane {
+    display: none; /* 默认隐藏 */
+}
+
+.tab-pane.active {
+    display: block; /* 显示激活的面板 */
+    animation: fadeIn 0.5s; /* 添加淡入动画 */
+}
+
+/* 调整搜索表单，使其适应新布局 */
+.tab-pane .entity-search-form {
+    padding: 0;
+    background: none;
+    margin-bottom: 0;
+}
+
+/* --- 浮动栏UI遮挡解决方案 --- */
+body.floating-bar-active main {
+    /* 当浮动栏激活时，给主内容区增加底部内边距 */
+    /* 120px 是一个安全的高度，通常大于浮动栏 */
+    padding-bottom: 120px;
+    transition: padding-bottom 0.3s ease-in-out;
+}
+
+/* --- 选择喜好页：美化搜索栏 --- */
+.entity-search-form .search-bar-wrapper {
+    position: relative;
+    display: flex;
+    width: 100%;
+}
+
+.entity-search-form .search-input {
+    flex-grow: 1;
+    padding: 14px 20px; /* 增加内边距 */
+    padding-right: 120px; /* 为按钮留出空间 */
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    border-radius: 8px; /* 圆角 */
+    font-size: 1.1rem;
+    transition: border-color 0.2s ease;
+}
+
+.entity-search-form .search-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.entity-search-form .search-submit-btn {
+    position: absolute;
+    right: 8px; /* 距离右侧的边距 */
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 10px 20px; /* 调整按钮内边距 */
+    border-radius: 6px; /* 按钮也加圆角 */
+}
+
+/* 隐藏按钮上的文字，如果屏幕较窄 */
+@media (max-width: 768px) {
+    .entity-search-form .search-submit-btn span {
+        display: none;
+    }
+    .entity-search-form .search-input {
+        padding-right: 60px; /* 窄屏时为按钮留出更少空间 */
+    }
+}
+
+/* --- 选择喜好页：胶囊式标签 --- */
+.entity-pills-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.entity-pill {
+    display: inline-block;
+    padding: 0.8rem 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 50px; /* 胶囊形状 */
+    color: var(--color-text-secondary);
+    background-color: var(--color-surface);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.entity-pill:hover {
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+.entity-pill.added {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #000;
+    font-weight: bold;
+}
+
+/* --- 人物发现页：子选项卡 --- */
+.sub-tabs {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--color-border);
+}
+.sub-tab-button {
+    padding: 0.5rem 0;
+    margin-bottom: -1px; /* 让下边框重合 */
+    border-bottom: 3px solid transparent;
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.sub-tab-button:hover {
+    color: #fff;
+}
+.sub-tab-button.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+}
+
+/* --- 选择喜好页：胶囊式标签增强 --- */
+.entity-pill.added {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #000;
+    font-weight: bold;
+}
+.entity-pill.added:hover {
+    background-color: #00b342; /* 悬停时颜色稍深 */
+    border-color: #00b342;
+}
+
+/* --- 子选项卡面板 --- */
+.sub-tab-pane {
+    display: none;
+}
+.sub-tab-pane.active {
+    display: block;
+}

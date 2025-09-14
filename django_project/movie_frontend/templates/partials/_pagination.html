@@ -1,0 +1,30 @@
+{% comment %}
+This pagination template now requires:
+- page_obj: The paginator page object.
+- main_tab_name: A string like 'people'.
+- sub_tab_name: A string like 'directors' or 'actors'.
+{% endcomment %}
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+    <div class="pagination-links">
+        {% if page_obj.has_previous %}
+            <a href="?page=1&main_tab={{ main_tab_name }}&sub_tab={{ sub_tab_name }}{% if query %}&q={{ query }}{% endif %}">&laquo; 首页</a>
+            <a href="?page={{ page_obj.previous_page_number }}&main_tab={{ main_tab_name }}&sub_tab={{ sub_tab_name }}{% if query %}&q={{ query }}{% endif %}">上一页</a>
+        {% endif %}
+
+        {% for i in page_obj.paginator.page_range %}
+            {% if page_obj.number == i %}
+                <span class="current">{{ i }}</span>
+            {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                <a href="?page={{ i }}&main_tab={{ main_tab_name }}&sub_tab={{ sub_tab_name }}{% if query %}&q={{ query }}{% endif %}">{{ i }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&main_tab={{ main_tab_name }}&sub_tab={{ sub_tab_name }}{% if query %}&q={{ query }}{% endif %}">下一页</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}&main_tab={{ main_tab_name }}&sub_tab={{ sub_tab_name }}{% if query %}&q={{ query }}{% endif %}">尾页 &raquo;</a>
+        {% endif %}
+    </div>
+    <span class="page-info">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+</div>
+{% endif %}
