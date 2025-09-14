@@ -24,6 +24,8 @@ from films_recommender_system.views import RegisterView
 
 from films_recommender_system.views import RegisterView
 from testWeb import views
+from django.conf import settings  # 新增
+from django.conf.urls.static import static  # 新增
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -42,3 +44,7 @@ urlpatterns = [
     path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
+
+# 仅在开发模式下提供媒体文件服务
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

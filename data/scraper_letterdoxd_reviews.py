@@ -13,10 +13,10 @@ from selenium.webdriver.chrome.options import Options
 from selenium_stealth import stealth
 
 # --- 配置区域 ---
-INPUT_CSV_FILE = 'movies_letterdoxd_details_v1.csv'  # 请确保这是您的输入文件名
-OUTPUT_CSV_FILE = 'reviews_letterdoxd_v1.csv'  # 修改了输出文件名以防覆盖
+INPUT_CSV_FILE = 'movies_letterdoxd_details_merged_v1.csv'  # 请确保这是您的输入文件名
+OUTPUT_CSV_FILE = 'reviews_letterdoxd_merged_v1.csv'  # 修改了输出文件名以防覆盖
 MOVIES_TO_PROCESS = -1  # 设置为 -1 来处理文件中的所有电影
-PAGES_PER_MOVIE = 2
+PAGES_PER_MOVIE = 3
 
 
 # --- 配置结束 ---

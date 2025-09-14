@@ -1,34 +1,47 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login as auth_login
+from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
+from django.contrib.auth import login as auth_login, update_session_auth_hash
+from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.db import transaction
-from django import forms
-from django.http import JsonResponse
-from django.db.models import Prefetch
-from django.db.models import Prefetch, Q  # 导入 Q 对象
-
+from django.db.models import Prefetch, Q
 
 from films_recommender_system.models import (
-    Movie, MovieTitle, Genre, Review, Recommendation, UserProfile
+    Movie, MovieTitle, Genre, Review, Recommendation, UserProfile,
+    UserReview, BrowsingHistory
+)
+from .forms import (
+    ProfileInfoForm, UserEmailForm, AvatarUploadForm, BackgroundUploadForm
 )
 
 
-# -------------------- 工具函数 (无变化) --------------------
+# ... (你其他的工具函数在这里，无需改动) ...
 def _display_title(movie):
-    zh = movie.titles.filter(language__icontains='zh').first()
-    if zh: return zh.title_text
-    en = movie.titles.filter(language__icontains='en').first()
-    if en: return en.title_text
-    return getattr(movie, 'original_title', str(movie.id))
+    primary_title = movie.titles.filter(is_primary=True, language__icontains='zh').first()
+    if not primary_title: primary_title = movie.titles.filter(is_primary=True).first()
+    if primary_title: return primary_title.title_text
+    zh_title = movie.titles.filter(language__icontains='zh').first()
+    if zh_title: return zh_title.title_text
+    return movie.original_title
 
 
 def _attach_display_titles(movies):
-    for m in movies:
-        setattr(m, 'display_title', _display_title(m))
+    movie_ids = [m.id for m in movies]
+    titles = MovieTitle.objects.filter(movie_id__in=movie_ids)
+    titles_map = {m_id: [] for m_id in movie_ids}
+    for title in titles:
+        titles_map[title.movie_id].append(title)
+    for movie in movies:
+        movie_titles = titles_map.get(movie.id, [])
+        display_title = next((t.title_text for t in movie_titles if t.is_primary and 'zh' in t.language.lower()), None)
+        if not display_title: display_title = next((t.title_text for t in movie_titles if t.is_primary), None)
+        if not display_title: display_title = next((t.title_text for t in movie_titles if 'zh' in t.language.lower()),
+                                                   None)
+        if not display_title: display_title = movie.original_title
+        setattr(movie, 'display_title', display_title)
     return movies
 
 
@@ -40,11 +53,9 @@ def _set_fav_ids(request, ids):
     request.session['favorite_movie_ids'] = list(map(int, ids))
 
 
-# -------------------- 视图 --------------------
+# ... (signup, home, movie_list 视图无变化) ...
 def signup(request):
-    # ... (无变化)
-    if request.user.is_authenticated:
-        return redirect('movie_frontend:home')
+    if request.user.is_authenticated: return redirect('movie_frontend:home')
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
@@ -57,72 +68,93 @@ def signup(request):
 
 
 def home(request):
-    # ... (无变化)
-    movies = Movie.objects.all().prefetch_related('titles', 'genres')[:12]
+    movies = Movie.objects.all().prefetch_related(Prefetch('titles', queryset=MovieTitle.objects.all())).order_by(
+        '-release_year')[:12]
     movies = _attach_display_titles(list(movies))
-    context = {
-        'movies': movies,
-        'fav_ids': _get_fav_ids(request),
-    }
+    context = {'movies': movies, 'fav_ids': _get_fav_ids(request)}
     return render(request, 'index.html', context)
 
 
 def movie_list(request):
     qs = Movie.objects.all().prefetch_related('titles', 'genres')
-
-    # MODIFIED: 添加搜索查询处理
     search_query = request.GET.get('q')
     if search_query:
-        # 使用 Q 对象进行 OR 查询，同时搜索中文译名和原始标题
         qs = qs.filter(
-            Q(titles__title_text__icontains=search_query) |
-            Q(original_title__icontains=search_query)
-        )
-
+            Q(titles__title_text__icontains=search_query) | Q(original_title__icontains=search_query)).distinct()
     selected_genre_id = request.GET.get('genre')
-    if selected_genre_id:
-        try:
-            gid = int(selected_genre_id)
-            qs = qs.filter(genres__id=gid)
-        except (ValueError, TypeError):
-            pass
-
-    movies = _attach_display_titles(list(qs.distinct()))
+    if selected_genre_id and selected_genre_id.isdigit():
+        gid = int(selected_genre_id)
+        qs = qs.filter(genres__id=gid)
+    movies = _attach_display_titles(list(qs))
     genres = list(Genre.objects.all())
     context = {
         'movies': movies,
         'genres': genres,
         'selected_genre_id': int(selected_genre_id) if selected_genre_id and selected_genre_id.isdigit() else None,
         'fav_ids': _get_fav_ids(request),
-        'query': search_query,  # MODIFIED: 将查询词传回模板
+        'query': search_query,
     }
     return render(request, 'movie_list.html', context)
 
 
 def movie_detail(request, movie_id):
-    # ... (无变化)
     movie = get_object_or_404(
         Movie.objects.prefetch_related('titles', 'genres', 'directors', 'actors', 'scriptwriters'), pk=movie_id)
-    display_title = _display_title(movie)
-    setattr(movie, 'display_title', display_title)
+    setattr(movie, 'display_title', _display_title(movie))
     reviews = Review.objects.filter(movie=movie).select_related('source').order_by('-id')[:20]
+    is_in_watchlist = False
+    is_in_favorites = False
+    if request.user.is_authenticated:
+        BrowsingHistory.objects.update_or_create(user=request.user, movie=movie)
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        is_in_watchlist = profile.watchlist.filter(pk=movie.id).exists()
+        is_in_favorites = movie.id in _get_fav_ids(request)
     context = {
         'movie': movie,
-        'display_title': display_title,
         'reviews': reviews,
         'fav_ids': _get_fav_ids(request),
+        'is_in_watchlist': is_in_watchlist,
+        'is_in_favorites': is_in_favorites,
     }
     return render(request, 'movie_detail.html', context)
 
 
-# ... recommendations, choose_favorites, toggle_favorite 视图无变化 ...
+# MODIFIED: 重写 toggle_favorite 视图
+@require_POST
+@login_required
+def toggle_favorite(request, movie_id):
+    movie = get_object_or_404(Movie, pk=movie_id)
+
+    # 1. 更新 Session (用于UI即时反馈)
+    fav_ids = _get_fav_ids(request)
+    is_favorited = movie_id in fav_ids
+
+    if is_favorited:
+        fav_ids.remove(movie_id)
+    else:
+        fav_ids.add(movie_id)
+    _set_fav_ids(request, fav_ids)
+
+    # 2. 更新数据库 (用于数据持久化)
+    recommendation, created = Recommendation.objects.get_or_create(user=request.user)
+    if is_favorited:
+        # 如果之前是喜欢状态，现在移除
+        recommendation.favorite_movies.remove(movie)
+    else:
+        # 如果之前不是喜欢状态，现在添加
+        recommendation.favorite_movies.add(movie)
+
+    next_url = request.META.get('HTTP_REFERER') or reverse('movie_frontend:home')
+    return HttpResponseRedirect(next_url)
+
+
+# ... (recommendations, choose_favorites, toggle_watchlist 视图无变化) ...
 @login_required
 def recommendations(request):
-    fav_ids = _get_fav_ids(request)
-    movies = _attach_display_titles(list(Movie.objects.filter(id__in=fav_ids).prefetch_related('titles', 'genres')))
     rec, _ = Recommendation.objects.get_or_create(user=request.user)
-    with transaction.atomic():
-        rec.recommended_movies.set(movies)
+    favorite_movies_from_db = list(rec.favorite_movies.all().values_list('id', flat=True))
+    _set_fav_ids(request, favorite_movies_from_db)
+    movies = _attach_display_titles(list(rec.favorite_movies.all().prefetch_related('titles', 'genres')))
     return render(request, 'recommendations.html', {'movies': movies})
 
 
@@ -131,82 +163,84 @@ def choose_favorites(request):
         ids = set(map(int, request.POST.getlist('favorites')))
         _set_fav_ids(request, ids)
         if request.user.is_authenticated:
-            return redirect('movie_frontend:recommendations')
-        else:
-            return redirect('movie_frontend:home')
+            rec, _ = Recommendation.objects.get_or_create(user=request.user)
+            rec.favorite_movies.set(Movie.objects.filter(id__in=ids))
+        return redirect('movie_frontend:recommendations')
     movies = _attach_display_titles(list(Movie.objects.all().prefetch_related('titles', 'genres')))
     return render(request, 'choose_favorites.html', {'movies': movies, 'fav_ids': _get_fav_ids(request)})
 
 
 @require_POST
-def toggle_favorite(request, movie_id):
-    favs = _get_fav_ids(request)
-    if movie_id in favs:
-        favs.remove(movie_id)
+@login_required
+def toggle_watchlist(request, movie_id):
+    movie = get_object_or_404(Movie, pk=movie_id)
+    profile = request.user.profile
+    if profile.watchlist.filter(pk=movie.id).exists():
+        profile.watchlist.remove(movie)
     else:
-        favs.add(movie_id)
-    _set_fav_ids(request, favs)
+        profile.watchlist.add(movie)
     next_url = request.META.get('HTTP_REFERER') or reverse('movie_frontend:home')
     return HttpResponseRedirect(next_url)
 
-class ProfileForm(forms.ModelForm):
-    class Meta:
-        model = UserProfile
-        fields = ['nickname', 'signature']
-        widgets = {
-            'signature': forms.Textarea(attrs={'rows': 3, 'cols': 40}),  # 签名用多行文本框
-        }
 
-
-
+# MODIFIED: 重构 profile 视图的 POST 处理逻辑
 @login_required
 def profile(request):
-    """个人资料视图：展示并允许修改昵称和签名，以及用户喜欢的电影"""
-    # 获取或创建用户资料
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    user_profile, created = UserProfile.objects.get_or_create(user=request.user)
+    user = request.user
 
-    # 处理表单提交
     if request.method == 'POST':
-        form = ProfileForm(request.POST, instance=profile)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({
-                'status': 'success',
-                'nickname': profile.nickname,
-                'signature': profile.signature
-            })
-        return JsonResponse({'status': 'error', 'errors': form.errors})
+        form_type = request.POST.get('form_type')
+        active_tab = request.POST.get('active_tab', 'tab-profile')  # 获取当前激活的tab
+        redirect_url = reverse('movie_frontend:profile') + f'#{active_tab}'  # 构建带片段的URL
 
-    # "喜欢的电影"处理逻辑
-    def _get_fav_ids(request):
-        """获取用户勾选的喜欢的电影ID"""
-        return request.session.get('favorite_movie_ids', [])
+        if form_type == 'profile_info':
+            form = ProfileInfoForm(request.POST, instance=user_profile)
+            if form.is_valid():
+                form.save()
+                messages.success(request, '个人资料更新成功！')
+        elif form_type == 'user_email':
+            form = UserEmailForm(request.POST, instance=user)
+            if form.is_valid():
+                form.save()
+                messages.success(request, '邮箱更新成功！')
+        elif form_type == 'avatar_upload':
+            form = AvatarUploadForm(request.POST, request.FILES, instance=user_profile)
+            if form.is_valid():
+                form.save()
+                messages.success(request, '头像上传成功！')
+        elif form_type == 'background_upload':
+            form = BackgroundUploadForm(request.POST, request.FILES, instance=user_profile)
+            if form.is_valid():
+                form.save()
+                messages.success(request, '个人背景更新成功！')
+        elif form_type == 'password_change':
+            form = PasswordChangeForm(user, request.POST)
+            if form.is_valid():
+                user = form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, '密码修改成功！')
+            else:
+                for field, errors in form.errors.items():
+                    for error in errors: messages.error(request, f"{field}: {error}")
 
-    def _attach_display_titles(movies):
-        """为电影添加显示标题"""
-        for movie in movies:
-            primary_title = movie.titles.filter(is_primary=True).first()
-            movie.display_title = primary_title.title_text if primary_title else movie.original_title
-        return movies
+        return redirect(redirect_url)  # 重定向到带片段的URL
 
-    fav_ids = _get_fav_ids(request)
+    # GET 请求处理 (无变化)
+    info_form, email_form, avatar_form, background_form, password_form = ProfileInfoForm(
+        instance=user_profile), UserEmailForm(instance=user), AvatarUploadForm(
+        instance=user_profile), BackgroundUploadForm(instance=user_profile), PasswordChangeForm(user)
+    recommendation, _ = Recommendation.objects.get_or_create(user=user)
     favorite_movies = _attach_display_titles(
-        list(Movie.objects.filter(
-            id__in=fav_ids
-        ).prefetch_related(
-            'titles',
-            'genres'
-        ))
-    )
-
-    with transaction.atomic():
-        user_recommendation, _ = Recommendation.objects.get_or_create(user=request.user)
-        user_recommendation.recommended_movies.set(favorite_movies)
-
-    # 传递数据到模板
-    context = {
-        'favorite_movies': favorite_movies,
-        'profile': profile
-    }
-
+        list(recommendation.favorite_movies.all().prefetch_related('titles', 'genres')))
+    watchlist_movies = _attach_display_titles(list(user_profile.watchlist.all().prefetch_related('titles', 'genres')))
+    user_reviews = UserReview.objects.filter(user=user).select_related('movie').prefetch_related('movie__titles')
+    for review in user_reviews: setattr(review.movie, 'display_title', _display_title(review.movie))
+    browsing_history = BrowsingHistory.objects.filter(user=user).select_related('movie').prefetch_related(
+        'movie__titles')[:50]
+    for history_item in browsing_history: setattr(history_item.movie, 'display_title',
+                                                  _display_title(history_item.movie))
+    context = {'profile': user_profile, 'info_form': info_form, 'email_form': email_form, 'avatar_form': avatar_form,
+               'background_form': background_form, 'password_form': password_form, 'favorite_movies': favorite_movies,
+               'watchlist_movies': watchlist_movies, 'user_reviews': user_reviews, 'browsing_history': browsing_history}
     return render(request, 'profile.html', context)

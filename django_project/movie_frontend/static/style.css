@@ -412,3 +412,312 @@ form.card input[type="password"] {
     font-size: 0.8rem;
     color: var(--color-primary);
 }
+
+/* --- 个人中心页面 (Profile Page) --- */
+.profile-header {
+    height: 40vh;
+    min-height: 300px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #fff;
+}
+
+.profile-header-overlay {
+    position: relative;
+    z-index: 2;
+    background-color: rgba(20, 24, 28, 0.6);
+    padding: 2rem;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.profile-avatar-container {
+    margin-bottom: 1rem;
+}
+
+.profile-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+}
+
+.profile-username {
+    margin: 0.5rem 0;
+    font-size: 2.5rem;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+}
+
+.profile-bio {
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+    max-width: 600px;
+}
+
+.profile-main {
+    padding-top: 2rem;
+}
+
+.profile-tabs-nav {
+    display: flex;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 2rem;
+}
+
+.tab-link {
+    background: none;
+    border: none;
+    color: var(--color-text-secondary);
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-link:hover {
+    color: #fff;
+}
+
+.tab-link.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.profile-form.card {
+    margin-bottom: 2rem;
+}
+
+.user-reviews-list .user-review-item {
+    margin-bottom: 1.5rem;
+    background-color: var(--color-surface);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.history-list {
+    list-style: none;
+    padding: 0;
+}
+
+.history-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.history-list li:hover {
+    background-color: var(--color-surface);
+}
+
+.history-time {
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+}
+
+/* --- 电影详情页操作按钮 --- */
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    align-items: center;
+}
+
+.favorite-btn {
+    background-color: var(--color-surface);
+    color: #fff;
+    padding: 0.7rem; /* 使其接近方形 */
+    border-radius: 50%; /* 圆形按钮 */
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border);
+}
+
+.favorite-btn svg {
+    transition: all 0.2s ease;
+}
+
+.favorite-btn:hover {
+    background-color: var(--color-border);
+}
+
+/* 喜欢之后的状态 */
+.favorite-btn.favorited {
+    border-color: #ff4581;
+}
+
+.favorite-btn.favorited svg {
+    fill: #ff4581; /* 填充颜色 */
+    stroke: #ff4581; /* 边框颜色 */
+}
+
+/* --- 个人中心背景优化 --- */
+.profile-header {
+    height: 65vh; /* 从 40vh 增加到 65vh */
+    min-height: 450px; /* 增加最小高度 */
+}
+
+/* --- 个人中心表单UI优化 --- */
+.profile-form.card {
+    padding: 2rem;
+}
+.profile-form h3 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: 1.2rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.8rem;
+}
+
+/* 将多个表单组合在一个卡片里 */
+.profile-form.card form {
+    margin-bottom: 2rem;
+}
+.profile-form.card form:last-child {
+    margin-bottom: 0;
+}
+
+.form-group {
+    margin-bottom: 1.2rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    border-radius: 4px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.form-help-text {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.form-error {
+    color: #ff4581;
+    font-size: 0.8rem;
+    margin-top: 0.4rem;
+}
+
+/* --- 个人资料 Bio 文本框样式协调 --- */
+.form-group textarea {
+    width: 100%;
+    min-height: 120px; /* 增加最小高度 */
+    padding: 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    border-radius: 4px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+    font-family: var(--font-family); /* 继承字体 */
+    font-size: 1rem; /* 继承字号 */
+}
+
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+
+/* --- 自定义文件上传组件样式 --- */
+.file-upload-group {
+    /* Django 默认会用 p 标签包裹，我们先重置一下 */
+    margin: 0;
+    padding: 0;
+}
+
+/* 隐藏原始的 "选择文件" 按钮 */
+.file-upload-group input[type="file"] {
+    display: none;
+}
+
+/* "目前: ..." 和 "清除" 复选框的样式 */
+.file-upload-group .clearable-file-input {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 1rem;
+}
+
+.file-upload-group .clearable-file-input a {
+    color: var(--color-primary);
+    word-break: break-all; /* 防止长文件名撑破布局 */
+}
+
+/* 自定义的 "选择文件" 按钮 */
+.file-upload-btn {
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    margin-right: 1rem;
+}
+.file-upload-btn:hover {
+    background-color: var(--color-border);
+    color: #fff;
+}
+
+/* 显示已选择文件名的区域 */
+.file-upload-filename {
+    display: inline-block;
+    vertical-align: middle;
+    color: var(--color-text-secondary);
+}
+
+/* 清除复选框的标签样式 */
+.file-upload-group .clearable-file-input label {
+    margin-top: 0.5rem;
+    cursor: pointer;
+}

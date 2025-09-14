@@ -1,207 +1,181 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}个人资料 - 电影推荐系统{% endblock %}
+{% block title %}个人中心 - {{ user.username }}{% endblock %}
+{% block body_class %}full-bleed-header{% endblock %}
 
 {% block content %}
-<section class="profile-container">
-    <h1>个人资料</h1>
-
-    {% if user.is_authenticated %}
-        <!-- 用户基本信息 -->
-        <div class="user-info">
-            <!-- 昵称显示/编辑区域 -->
-            <div class="info-item">
-                <strong>昵称：</strong>
-                <span class="info-display" id="nickname-display">
-                    {{ user.profile.nickname|default:user.username }}
-                </span>
-                <input type="text"
-                       class="info-input"
-                       id="nickname-input"
-                       value="{{ user.profile.nickname|default:'' }}"
-                       style="display:none;"
-                       maxlength="100">
+<div class="profile-page">
+    <header class="profile-header" style="background-image: url('{% if profile.profile_background %}{{ profile.profile_background.url }}{% else %}{% static 'images/default_bg.jpg' %}{% endif %}');">
+        <div class="profile-header-overlay">
+            <div class="profile-avatar-container">
+                <img src="{% if profile.avatar %}{{ profile.avatar.url }}{% else %}{% static 'images/default_avatar.png' %}{% endif %}" alt="Avatar" class="profile-avatar">
             </div>
+            <h1 class="profile-username">{{ profile.nickname|default:user.username }}</h1>
+            <p class="profile-bio">{{ profile.bio|default:"这个用户很神秘，什么都没留下..." }}</p>
+        </div>
+    </header>
 
-            <!-- 签名显示/编辑区域 -->
-            <div class="info-item">
-                <strong>个人签名：</strong>
-                <p class="info-display" id="signature-display">
-                    {{ user.profile.signature|default:"未设置签名" }}
-                </p>
-                <textarea class="info-input"
-                          id="signature-input"
-                          rows="3"
-                          style="display:none;"
-                          maxlength="500">{{ user.profile.signature|default:'' }}</textarea>
-            </div>
-
-            <p><strong>用户名：</strong>{{ user.username }}</p>
-            {% if user.email %}
-                <p><strong>邮箱：</strong>{{ user.email }}</p>
-            {% endif %}
-
-            <!-- 操作按钮 -->
-            <button id="edit-btn" class="btn-primary">修改信息</button>
+    <div class="container profile-main">
+        <div class="profile-tabs-nav">
+            <button class="tab-link" data-tab="tab-profile">个人资料</button>
+            <button class="tab-link" data-tab="tab-favorites">我的喜欢</button>
+            <button class="tab-link" data-tab="tab-watchlist">我的收藏</button>
+            <button class="tab-link" data-tab="tab-reviews">我的评论</button>
+            <button class="tab-link" data-tab="tab-history">浏览历史</button>
+            <button class="tab-link" data-tab="tab-settings">账户设置</button>
         </div>
 
-        <!-- 我喜欢的电影栏 -->
-        <div class="favorite-movies-section">
-            <div class="section-header">
-                <h3>我喜欢的电影</h3>
-                <p>这些是你在"选择你喜欢的电影"中勾选的影片</p>
+        <div class="profile-tabs-content">
+            <!-- MODIFIED: "个人资料"表单手动渲染 -->
+            <div id="tab-profile" class="tab-content">
+                <h2>编辑个人资料</h2>
+                <form method="post" class="profile-form card">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="profile_info">
+                    <input type="hidden" name="active_tab" value="tab-profile">
+                    <div class="form-group">
+                        <label for="{{ info_form.nickname.id_for_label }}">用户昵称</label>
+                        {{ info_form.nickname }}
+                    </div>
+                    <div class="form-group">
+                        <label for="{{ info_form.bio.id_for_label }}">个人简介</label>
+                        {{ info_form.bio }}
+                    </div>
+                    <button type="submit" class="btn primary-btn">保存资料</button>
+                </form>
             </div>
 
-            {% if favorite_movies %}
-                <div class="movies-grid">
-                    {% for movie in favorite_movies %}
-                        <div class="movie-card">
-                            <div class="movie-info">
-                                <h4 class="movie-title">
-                                    <a href="{% url 'movie_frontend:movie_detail' movie.id %}">
-                                        {{ movie.display_title }}
-                                    </a>
-                                </h4>
-                                <div class="movie-meta">
-                                    <span class="release-year">{{ movie.release_year }}</span>
-                                    <div class="genres">
-                                        {% for genre in movie.genres.all|slice:":3" %}
-                                            <span class="genre-badge">{{ genre.name }}</span>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
+            <!-- 其他选项卡内容无变化 -->
+            <div id="tab-favorites" class="tab-content"><h2>我喜欢的电影</h2><p>这些电影是你选择的喜好，用于生成个性化推荐。</p><div class="movie-grid">{% for movie in favorite_movies %}{% include 'partials/_movie_card_simple.html' with movie=movie %}{% empty %}<p>你还没有选择喜欢的电影。</p>{% endfor %}</div></div>
+            <div id="tab-watchlist" class="tab-content"><h2>我的收藏</h2><p>这些是你标记为“想看”的电影。</p><div class="movie-grid">{% for movie in watchlist_movies %}{% include 'partials/_movie_card_simple.html' with movie=movie %}{% empty %}<p>你的收藏列表是空的。</p>{% endfor %}</div></div>
+            <div id="tab-reviews" class="tab-content"><h2>我的评论</h2><div class="user-reviews-list">{% for review in user_reviews %}<div class="user-review-item card"><p>关于电影 <a href="{% url 'movie_frontend:movie_detail' review.movie.id %}">{{ review.movie.display_title }}</a></p><p>我的评分：{{ review.rating }} / 5</p><blockquote>{{ review.review }}</blockquote><small>{{ review.timestamp|date:"Y-m-d H:i" }}</small></div>{% empty %}<p>你还没有发表过任何评论。</p>{% endfor %}</div></div>
+            <div id="tab-history" class="tab-content"><h2>浏览历史</h2><ul class="history-list">{% for item in browsing_history %}<li><a href="{% url 'movie_frontend:movie_detail' item.movie.id %}">{{ item.movie.display_title }}</a><span class="history-time">{{ item.viewed_on|timesince }}前</span></li>{% empty %}<p>暂无浏览历史。</p>{% endfor %}</ul></div>
+
+            <!-- MODIFIED: "账户设置"UI重构，增加引导文字和自定义上传组件 -->
+            <div id="tab-settings" class="tab-content">
+                <h2>账户设置</h2>
+                <div class="profile-form card">
+                    <h3>修改邮箱</h3>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="user_email">
+                        <input type="hidden" name="active_tab" value="tab-settings">
+                        <div class="form-group">
+                            <label for="{{ email_form.email.id_for_label }}">邮箱地址</label>
+                            {{ email_form.email }}
+                            {% if email_form.email.help_text %}<small class="form-help-text">{{ email_form.email.help_text }}</small>{% endif %}
+                            {% for error in email_form.email.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
                         </div>
-                    {% endfor %}
+                        <button type="submit" class="btn primary-btn">更新邮箱</button>
+                    </form>
                 </div>
-            {% else %}
-                <div class="empty-state">
-                    <i class="fa fa-film"></i>
-                    <p>你还没有选择喜欢的电影</p>
-                    <a href="{% url 'movie_frontend:choose_favorites' %}" class="btn-primary">
-                        去选择喜欢的电影
-                    </a>
+                <div class="profile-form card">
+                    <h3>上传头像</h3>
+                    <p class="form-help-text">选择一张新图片，然后点击“上传新头像”按钮即可更新。如果想移除当前头像，勾选“清除”后提交。</p>
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="avatar_upload">
+                        <input type="hidden" name="active_tab" value="tab-settings">
+                        <div class="form-group file-upload-group">
+                            {{ avatar_form.avatar }}
+                        </div>
+                        <button type="submit" class="btn primary-btn">上传新头像</button>
+                    </form>
                 </div>
-            {% endif %}
+                <div class="profile-form card">
+                     <h3>上传背景</h3>
+                     <p class="form-help-text">操作方式同上传头像。选择一张横向的图片会有更好的视觉效果。</p>
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="background_upload">
+                        <input type="hidden" name="active_tab" value="tab-settings">
+                        <div class="form-group file-upload-group">
+                            {{ background_form.profile_background }}
+                        </div>
+                        <button type="submit" class="btn primary-btn">上传新背景</button>
+                    </form>
+                </div>
+                <div class="profile-form card">
+                    <h3>修改密码</h3>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="password_change">
+                        <input type="hidden" name="active_tab" value="tab-settings">
+                        {% for field in password_form %}
+                        <div class="form-group">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<small class="form-help-text">{{ field.help_text }}</small>{% endif %}
+                            {% for error in field.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                        </div>
+                        {% endfor %}
+                        <button type="submit" class="btn primary-btn">确认修改密码</button>
+                    </form>
+                </div>
+            </div>
         </div>
-
-    {% else %}
-        <div class="login-prompt">
-            <p>请先登录查看个人资料</p>
-            <a href="{% url 'movie_frontend:login' %}" class="btn-primary">登录</a>
-        </div>
-    {% endif %}
-</section>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    .user-info {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 30px;
-    }
-
-    .info-item {
-        margin: 15px 0;
-    }
-
-    .info-input {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        margin-top: 5px;
-    }
-
-    .btn-primary {
-        display: inline-block;
-        background: #2c3e50;
-        color: white;
-        padding: 8px 16px;
-        border-radius: 4px;
-        text-decoration: none;
-        border: none;
-        cursor: pointer;
-        transition: background 0.3s;
-    }
-
-    .btn-primary:hover {
-        background: #34495e;
-    }
-
-    .btn-success {
-        background: #27ae60;
-    }
-
-    .btn-success:hover {
-        background: #219653;
-    }
-</style>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-
-const editBtn = document.getElementById('edit-btn');
-const nicknameDisplay = document.getElementById('nickname-display');
-const nicknameInput = document.getElementById('nickname-input');
-const signatureDisplay = document.getElementById('signature-display');
-const signatureInput = document.getElementById('signature-input');
-let isEditing = false;
-
-// 切换编辑状态
-editBtn.addEventListener('click', function() {
-    if (!isEditing) {
-        // 进入编辑模式
-        nicknameDisplay.style.display = 'none';
-        nicknameInput.style.display = 'block';
-        signatureDisplay.style.display = 'none';
-        signatureInput.style.display = 'block';
-        editBtn.textContent = '确认修改';
-        editBtn.classList.add('btn-success');
-        isEditing = true;
-    } else {
-        // 提交修改
-        submitChanges();
+document.addEventListener('DOMContentLoaded', function() {
+    // 选项卡逻辑 (无变化)
+    const tabLinks = document.querySelectorAll('.tab-link');
+    const tabContents = document.querySelectorAll('.tab-content');
+    function activateTab(tabId) {
+        tabLinks.forEach(link => link.classList.toggle('active', link.dataset.tab === tabId));
+        tabContents.forEach(content => content.classList.toggle('active', content.id === tabId));
     }
+    tabLinks.forEach(link => {
+        link.addEventListener('click', function(event) {
+            event.preventDefault();
+            const tabId = this.dataset.tab;
+            activateTab(tabId);
+            history.pushState(null, null, '#' + tabId);
+        });
+    });
+    const currentHash = window.location.hash.substring(1);
+    if (currentHash) {
+        activateTab(currentHash);
+    } else if (tabLinks.length > 0) {
+        activateTab(tabLinks[0].dataset.tab);
+    }
+
+    // NEW: 美化文件上传组件的逻辑
+    document.querySelectorAll('.file-upload-group').forEach(group => {
+        const djangoInput = group.querySelector('input[type="file"]');
+        if (!djangoInput) return;
+
+        // 创建自定义UI元素
+        const customButton = document.createElement('button');
+        customButton.type = 'button';
+        customButton.className = 'btn file-upload-btn';
+        customButton.textContent = '选择文件';
+
+        const fileNameDisplay = document.createElement('span');
+        fileNameDisplay.className = 'file-upload-filename';
+        fileNameDisplay.textContent = '未选择文件';
+
+        // 将自定义UI插入到原始输入框之前
+        djangoInput.parentNode.insertBefore(customButton, djangoInput);
+        djangoInput.parentNode.insertBefore(fileNameDisplay, djangoInput);
+
+        // 绑定事件
+        customButton.addEventListener('click', () => {
+            djangoInput.click();
+        });
+
+        djangoInput.addEventListener('change', () => {
+            if (djangoInput.files && djangoInput.files.length > 0) {
+                fileNameDisplay.textContent = djangoInput.files[0].name;
+            } else {
+                fileNameDisplay.textContent = '未选择文件';
+            }
+        });
+    });
 });
-
-// 提交修改到后端
-function submitChanges() {
-    const formData = new FormData();
-    formData.append('nickname', nicknameInput.value);
-    formData.append('signature', signatureInput.value);
-
-    fetch('{% url "movie_frontend:profile" %}', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            // 更新显示内容
-            nicknameDisplay.textContent = data.nickname || '{{ user.username }}';
-            signatureDisplay.textContent = data.signature || '未设置签名';
-
-            // 退出编辑模式
-            nicknameInput.style.display = 'none';
-            signatureInput.style.display = 'none';
-            nicknameDisplay.style.display = 'inline';
-            signatureDisplay.style.display = 'block';
-            editBtn.textContent = '修改信息';
-            editBtn.classList.remove('btn-success');
-            isEditing = false;
-        } else {
-            alert('修改失败：' + JSON.stringify(data.errors));
-        }
-    })
-    .catch(error => console.error('提交失败：', error));
-}
 </script>
 {% endblock %}

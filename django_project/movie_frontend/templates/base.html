@@ -6,6 +6,7 @@
     <title>{% block title %}电影推荐系统{% endblock %}</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'style.css' %}">
+    {% block extra_css %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
 
@@ -23,7 +24,6 @@
       </ul>
     </div>
     <div class="nav-right">
-      <!-- MODIFIED: 新增搜索栏 -->
       <form class="search-bar" action="{% url 'movie_frontend:movie_list' %}" method="get">
         <input type="text" name="q" placeholder="搜索电影..." value="{{ query|default:'' }}">
         <button type="submit">
@@ -32,7 +32,7 @@
       </form>
       <ul class="auth-links">
         {% if user.is_authenticated %}
-          <li class="hello">你好, {{ user.username }}</li>
+          <li><a href="{% url 'movie_frontend:profile' %}">你好, {{ user.username }}</a></li>
           <li><a href="{% url 'logout' %}?next={% url 'login' %}">退出</a></li>
         {% else %}
           <li><a href="{% url 'login' %}?next=/">登录</a></li>
@@ -46,6 +46,13 @@
 <main>
   {% block content %}{% endblock %}
 </main>
-<!-- ... footer and extra_js ... -->
+
+<footer>
+    <!-- 你可以在这里添加页脚 -->
+</footer>
+
+<!-- 关键：这个块允许子模板添加它们自己的JavaScript -->
+{% block extra_js %}{% endblock %}
+
 </body>
 </html>
