@@ -226,21 +226,24 @@ def like_review(request, review_id):
     review = get_object_or_404(UserReview, pk=review_id)
     user = request.user
 
-    # 检查用户是否已经点赞
+    is_liked = False
     if user in review.liked_by.all():
-        # 如果已点赞，则取消
         review.liked_by.remove(user)
-        # 使用F()表达式确保原子性操作，防止竞争条件
         review.likes_count = F('likes_count') - 1
     else:
-        # 如果未点赞，则添加
         review.liked_by.add(user)
         review.likes_count = F('likes_count') + 1
+        is_liked = True
 
     review.save()
+    review.refresh_from_db()  # 从数据库重新加载以获取最新的 likes_count
 
-    # 重定向回电影详情页
-    return redirect('movie_frontend:movie_detail', movie_id=review.movie.id)
+    # 返回JSON响应
+    return JsonResponse({
+        'status': 'ok',
+        'likes_count': review.likes_count,
+        'is_liked': is_liked
+    })
 
 
 # --- 新增视图 ---

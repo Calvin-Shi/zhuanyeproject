@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container">
     <h1>选择你的喜好</h1>
-    <p>你可以直接添加喜欢的演员、导演或电影类型，也可以在下方勾选具体的电影。</p>
+    <p>你可以直接添加喜欢的演员、导演或类型，也可以在下方勾选具体的电影。</p>
 
     <!-- 选项卡式发现中心 -->
     <div class="browse-container card">
@@ -68,6 +68,42 @@
         </div>
     </div>
 
+    <!-- 搜索结果展示区 (仅当有搜索时显示) -->
+    {% if query %}
+    <div class="search-results-container">
+        {% if actors %}
+        <section class="entity-results-section">
+            <h2>匹配的人物 (演员/导演)</h2>
+            <div class="entity-grid">
+                {% for actor in actors %}
+                <div class="entity-card">
+                    <span>{{ actor.name }}</span>
+                    <button type="button" class="btn-toggle-entity {% if actor.id in favorite_people_ids %}added{% endif %}" data-entity-type="person" data-entity-id="{{ actor.id }}" data-entity-name="{{ actor.name }}">
+                        {% if actor.id in favorite_people_ids %}✓ 已添加{% else %}+ 添加喜好{% endif %}
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+        {% if genres_results %}
+        <section class="entity-results-section">
+            <h2>匹配的类型</h2>
+            <div class="entity-grid">
+                {% for genre in genres_results %}
+                <div class="entity-card">
+                    <span>{{ genre.name }}</span>
+                     <button type="button" class="btn-toggle-entity {% if genre.id in favorite_genre_ids %}added{% endif %}" data-entity-type="genre" data-entity-id="{{ genre.id }}" data-entity-name="{{ genre.name }}">
+                        {% if genre.id in favorite_genre_ids %}✓ 已添加{% else %}+ 添加喜好{% endif %}
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <h2 style="margin-top: 2rem;">电影列表</h2>
     <form method="post" id="favorites-form">
         {% csrf_token %}
@@ -94,7 +130,7 @@
 
 <div id="floating-actions-bar" class="actions-bar floating">
     <div class="container">
-        <span id="selection-counter">已选择 0 部电影</span>
+        <span id="selection-counter"></span>
         <button type="submit" form="favorites-form" class="btn primary-btn">提交喜好，查看推荐</button>
     </div>
 </div>
@@ -109,29 +145,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const allCheckboxes = document.querySelectorAll('.favorite-checkbox');
     const form = document.getElementById('favorites-form');
 
-    // --- 状态持久化核心逻辑 ---
-    const storageKey = 'favoriteMovieSelection_{{ user.id|default:"guest" }}';
-    let selectedMovieIds;
-    const storedData = localStorage.getItem(storageKey);
-
-    if (storedData) {
-        selectedMovieIds = new Set(JSON.parse(storedData));
-    } else {
-        selectedMovieIds = new Set({{ initial_favorite_movie_ids_json|safe }});
-        localStorage.setItem(storageKey, JSON.stringify(Array.from(selectedMovieIds)));
-    }
-
-    function saveSelection() {
-        localStorage.setItem(storageKey, JSON.stringify(Array.from(selectedMovieIds)));
-    }
+    // --- 状态持久化与计数核心逻辑 ---
+    const initialFavoriteIds = new Set({{ initial_favorite_movie_ids_json|safe }});
+    let selectedMovieIds = new Set(initialFavoriteIds);
+    let userHasInteracted = false; // 追踪用户是否已进行过操作
 
     function updateUI() {
+        // 更新复选框状态
         allCheckboxes.forEach(checkbox => {
             checkbox.checked = selectedMovieIds.has(parseInt(checkbox.value));
         });
+
         const count = selectedMovieIds.size;
+
+        // 智能提示文本逻辑
         if (count > 0) {
-            counter.textContent = `已选择 ${count} 部电影`;
+            if (!userHasInteracted && initialFavoriteIds.size > 0 && count === initialFavoriteIds.size) {
+                counter.textContent = `当前已有 ${count} 部喜好电影，可继续添加或修改`;
+            } else {
+                counter.textContent = `已选择 ${count} 部电影`;
+            }
             floatingBar.classList.add('visible');
             body.classList.add('floating-bar-active');
         } else {
@@ -142,13 +175,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     allCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', () => {
+            userHasInteracted = true; // 标记用户已操作
             const movieId = parseInt(checkbox.value);
             if (checkbox.checked) {
                 selectedMovieIds.add(movieId);
             } else {
                 selectedMovieIds.delete(movieId);
             }
-            saveSelection();
             updateUI();
         });
     });
@@ -160,7 +193,6 @@ document.addEventListener('DOMContentLoaded', function() {
         hiddenInput.name = 'favorite_ids_json';
         hiddenInput.value = JSON.stringify(Array.from(selectedMovieIds));
         this.appendChild(hiddenInput);
-        localStorage.removeItem(storageKey);
         this.submit();
     });
 
