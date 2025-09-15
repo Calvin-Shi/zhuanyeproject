@@ -33,7 +33,16 @@
       <ul class="auth-links">
         {% if user.is_authenticated %}
           <li><a href="{% url 'movie_frontend:profile' %}">你好, {{ user.username }}</a></li>
-          <li><a href="{% url 'logout' %}?next={% url 'login' %}">退出</a></li>
+
+          <!-- MODIFIED: 将退出链接改为表单 -->
+          <li>
+            <form class="logout-form" action="{% url 'logout' %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'login' %}">
+                <button type="submit" class="nav-link-button">退出</button>
+            </form>
+          </li>
+
         {% else %}
           <li><a href="{% url 'login' %}?next=/">登录</a></li>
           <li><a href="{% url 'movie_frontend:signup' %}" class="btn">注册</a></li>
@@ -48,10 +57,11 @@
 </main>
 
 <footer>
-    <!-- 你可以在这里添加页脚 -->
+    <!-- 电影真值推荐系统   基于 Django 架构开发 -->
+    电影真值推荐系统   基于 Django 架构开发
 </footer>
 
-<!-- 关键：这个块允许子模板添加它们自己的JavaScript -->
+<!-- 这个块允许子模板添加它们自己的JavaScript -->
 {% block extra_js %}{% endblock %}
 
 </body>

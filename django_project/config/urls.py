@@ -24,19 +24,23 @@ from films_recommender_system.views import RegisterView
 
 from films_recommender_system.views import RegisterView
 from testWeb import views
-from django.conf import settings  # 新增
-from django.conf.urls.static import static  # 新增
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # 前端应用的URL
     path('', include(('movie_frontend.urls', 'movie_frontend'), namespace='movie_frontend')),
     path('accounts/', include('django.contrib.auth.urls')),
+
     # 测试APP的URL
     path('index/', views.index),
     path('calPage', views.calPage),
     path('cal',views.calculate),
     path('list',views.calList),
     path('del',views.delData),
+
     # 将电影推荐系统APP的URL包含到主路由中，并为其分配一个命名空间
     path('api/', include('films_recommender_system.urls')),
     # 认证API路由

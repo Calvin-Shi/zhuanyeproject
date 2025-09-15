@@ -1,15 +1,31 @@
 {% extends 'base.html' %}
+
 {% block title %}注册{% endblock %}
+
+{% block body_class %}auth-page{% endblock %}
+
 {% block content %}
-<div class="container">
-    <form method="post" class="card">
-        <h1>注册</h1>
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn primary-btn" style="width:100%;">注册并登录</button>
-        <p style="text-align:center; margin-top:1rem;">
-            已有账号？<a href="{% url 'login' %}">去登录</a>
-        </p>
-    </form>
-</div>
+<!-- 确保没有外层的 <div class="container"> -->
+<form method="post" class="card">
+    <h1>注册</h1>
+    {% csrf_token %}
+
+    {% for field in form %}
+        <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+            {{ field }}
+            {% if field.help_text %}
+                <div class="form-help-text-block">{{ field.help_text|safe }}</div>
+            {% endif %}
+            {% for error in field.errors %}
+                <p class="form-error">{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endfor %}
+
+    <button type="submit" class="btn primary-btn" style="width:100%; margin-top: 1rem;">注册并登录</button>
+    <p style="text-align:center; margin-top:1.5rem;">
+        已有账号？<a href="{% url 'login' %}">去登录</a>
+    </p>
+</form>
 {% endblock %}

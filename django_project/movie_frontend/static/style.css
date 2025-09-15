@@ -1162,3 +1162,115 @@ body.floating-bar-active main {
 .sub-tab-pane.active {
     display: block;
 }
+
+/* --- 导航栏退出按钮样式 (美化版) --- */
+.logout-form {
+    margin: 0;
+    padding: 0;
+    /* 让表单在flex布局中可以垂直居中 */
+    display: flex;
+    align-items: center;
+}
+
+.nav-link-button {
+    /* 基础重置 */
+    background: transparent; /* 透明背景 (幽灵按钮核心) */
+    border: 1px solid var(--color-border); /* 使用主题中的边框颜色 */
+    cursor: pointer;
+
+    /* 尺寸和形状 */
+    padding: 0.4rem 1rem; /* 内边距，制造呼吸感 */
+    border-radius: 5px; /* 轻微圆角 */
+
+    /* 字体样式 */
+    color: var(--color-text-secondary); /* 使用次要文字颜色，不那么刺眼 */
+    font-family: inherit; /* 继承父元素的字体 */
+    font-weight: 500;
+    font-size: 0.9rem; /* 略微缩小字号，使其更精致 */
+
+    /* 交互动效 */
+    transition: all 0.2s ease-in-out;
+}
+
+.nav-link-button:hover {
+    background-color: var(--color-primary); /* 悬停时用主色填充 */
+    border-color: var(--color-primary); /* 边框也变为主题色 */
+    color: #000; /* 反色文字，确保可读性 */
+    transform: translateY(-1px); /* 轻微上浮效果 */
+    box-shadow: 0 4px 10px rgba(0, 224, 84, 0.2); /* 添加与主色匹配的辉光效果 */
+}
+
+/* --- 登录/注册页面背景美化 (终极版) --- */
+body.auth-page {
+    /* Body 的职责：撑满屏幕，为 <main> 提供布局基础 */
+    display: flex;
+    flex-direction: column; /* 确保 header, main, footer 垂直排列 */
+    min-height: 100vh;
+    padding-top: 0;
+}
+body.auth-page::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: -1;
+    background-image: url('images/xiaowangzi.jpg');
+    background-size: cover;
+    background-position: center;
+    filter: blur(3.7px) brightness(0.75);
+    transform: scale(1.05);
+}
+
+/* THE KEY FIX: 让 <main> 元素成为居中容器 */
+.auth-page main {
+    flex-grow: 1; /* 让 main 元素填满 header 和 footer 之间的所有可用空间 */
+    display: flex;
+    align-items: center; /* 垂直居中 */
+    justify-content: center; /* 水平居中 */
+    padding: 1rem; /* 为小屏幕提供安全边距 */
+    box-sizing: border-box;
+}
+
+/* 现在 .card 的样式可以专注于外观，因为它已经被 <main> 完美居中 */
+.auth-page .card {
+    background-color: rgba(30, 36, 42, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--color-border);
+    width: 100%;
+    max-width: 550px; /* 这个宽度现在可以自由生效了 */
+}
+
+/* 针对登录/注册页面的表单组样式微调 */
+.auth-page .form-group {
+    margin-bottom: 1.5rem;
+}
+.auth-page .form-group label {
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+.auth-page .form-group input {
+    width: 100%;
+    padding: 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    border-radius: 4px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+.auth-page .form-group input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+.form-help-text-block {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+.form-help-text-block ul {
+    padding-left: 1.2rem;
+    margin: 0.5rem 0 0;
+}

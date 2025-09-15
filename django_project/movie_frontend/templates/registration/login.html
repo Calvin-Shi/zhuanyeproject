@@ -1,17 +1,36 @@
 {% extends 'base.html' %}
+
 {% block title %}登录 - 电影推荐系统{% endblock %}
 
+{% block body_class %}auth-page{% endblock %}
+
 {% block content %}
-<div class="container">
-    <form method="post" action="{% url 'login' %}" class="card">
-        <h1>登录</h1>
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn primary-btn" style="width:100%;">登录</button>
-        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
-        <p style="text-align:center; margin-top:1rem;">
-            没有账号？<a href="{% url 'movie_frontend:signup' %}">去注册</a>
-        </p>
-    </form>
-</div>
+<!-- 确保没有外层的 <div class="container"> -->
+<form method="post" action="{% url 'login' %}" class="card">
+    <h1>登录</h1>
+    {% csrf_token %}
+
+    <div class="form-group">
+        <label for="{{ form.username.id_for_label }}">用户名:</label>
+        {{ form.username }}
+        {% for error in form.username.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-group">
+        <label for="{{ form.password.id_for_label }}">密码:</label>
+        {{ form.password }}
+        {% for error in form.password.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+
+    {% if form.non_field_errors %}
+        {% for error in form.non_field_errors %}
+            <p class="form-error" style="text-align: center;">{{ error }}</p>
+        {% endfor %}
+    {% endif %}
+
+    <button type="submit" class="btn primary-btn" style="width:100%; margin-top: 1rem;">登录</button>
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <p style="text-align:center; margin-top:1.5rem;">
+        没有账号？<a href="{% url 'movie_frontend:signup' %}">去注册</a>
+    </p>
+</form>
 {% endblock %}

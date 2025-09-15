@@ -7,13 +7,13 @@
 
 {% block content %}
 <!-- Hero Section 的 HTML 结构不变，但其样式已在 CSS 中更新为 100vh 高度 -->
-<section class="home-hero" style="background-image: url('{% static 'images/xiaowangzi.jpg' %}');">
+<section class="home-hero" style="background-image: url('{% static 'images/snow.jpg' %}');">
     <div class="hero-content">
         <h1>Track films you've watched.<br>
             Save those you want to see.<br>
             Tell your friends what's good.</h1>
         <p>基于你的喜好，为你推荐个性化电影</p>
-        <a href="{% url 'movie_frontend:choose_favorites' %}" class="btn primary-btn">开始推荐</a>
+        <a href="{% url 'movie_frontend:choose_favorites' %}" class="btn primary-btn">为你推荐</a>
     </div>
 </section>
 
