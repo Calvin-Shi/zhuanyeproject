@@ -1,0 +1,15 @@
+{% for movie in movies %}
+    <a href="{% url 'movie_frontend:movie_detail' movie.id %}" class="movie-card">
+        {% if movie.poster_url %}
+            <img src="{{ movie.poster_url }}" alt="{{ movie.display_title }}" class="poster-img">
+        {% else %}
+            <div class="poster-placeholder">{{ movie.display_title }}</div>
+        {% endif %}
+        <div class="overlay">
+            <div class="title">{{ movie.display_title }}</div>
+            <div class="year">{{ movie.release_year }}</div>
+        </div>
+    </a>
+{% empty %}
+    <p>暂无电影数据。</p>
+{% endfor %}

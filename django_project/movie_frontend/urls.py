@@ -23,4 +23,7 @@ urlpatterns = [
 
     # --- 新增：统一的、处理偏好切换的AJAX接口 ---
     path('favorites/toggle_entity/', views.toggle_favorite_entity, name='toggle_favorite_entity'),
+
+    # --- 新增：用于AJAX刷新的URL ---
+    path('refresh-popular-movies/', views.refresh_popular_movies, name='refresh_popular_movies'),
 ]

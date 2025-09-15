@@ -56,12 +56,14 @@
   {% block content %}{% endblock %}
 </main>
 
-<footer>
-    <!-- 电影真值推荐系统   基于 Django 架构开发 -->
-    电影真值推荐系统   基于 Django 架构开发
+<!-- NEW: 添加全新的网站页脚 -->
+<footer class="site-footer">
+    <div class="container">
+        <p class="footer-primary-text">电影真值推荐系统</p>
+        <p class="footer-secondary-text">基于 Django Web架构开发</p>
+    </div>
 </footer>
 
-<!-- 这个块允许子模板添加它们自己的JavaScript -->
 {% block extra_js %}{% endblock %}
 
 </body>

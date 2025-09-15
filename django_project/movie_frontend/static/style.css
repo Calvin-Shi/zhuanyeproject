@@ -1200,14 +1200,28 @@ body.floating-bar-active main {
     box-shadow: 0 4px 10px rgba(0, 224, 84, 0.2); /* 添加与主色匹配的辉光效果 */
 }
 
-/* --- 登录/注册页面背景美化 (终极版) --- */
+/* --- 登录/注册页面布局与样式 (终极版) --- */
 body.auth-page {
-    /* Body 的职责：撑满屏幕，为 <main> 提供布局基础 */
-    display: flex;
-    flex-direction: column; /* 确保 header, main, footer 垂直排列 */
-    min-height: 100vh;
-    padding-top: 0;
+    padding-top: 0 !important; /* 强制移除为导航栏留出的空间 */
 }
+
+/* 隐藏登录/注册页面的导航栏和页脚，提供沉浸式体验 */
+.auth-page header,
+.auth-page .site-footer {
+    display: none;
+}
+
+/* 让 <main> 填满整个屏幕并负责居中 */
+.auth-page main {
+    min-height: 100vh; /* 确保 main 至少和视窗一样高 */
+    display: flex;
+    align-items: center; /* 垂直居中 */
+    justify-content: center; /* 水平居中 */
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+/* 背景层样式 (无变化) */
 body.auth-page::before {
     content: '';
     position: fixed;
@@ -1216,27 +1230,17 @@ body.auth-page::before {
     background-image: url('images/xiaowangzi.jpg');
     background-size: cover;
     background-position: center;
-    filter: blur(3.7px) brightness(0.75);
+    filter: blur(4px) brightness(0.6);
     transform: scale(1.05);
 }
 
-/* THE KEY FIX: 让 <main> 元素成为居中容器 */
-.auth-page main {
-    flex-grow: 1; /* 让 main 元素填满 header 和 footer 之间的所有可用空间 */
-    display: flex;
-    align-items: center; /* 垂直居中 */
-    justify-content: center; /* 水平居中 */
-    padding: 1rem; /* 为小屏幕提供安全边距 */
-    box-sizing: border-box;
-}
-
-/* 现在 .card 的样式可以专注于外观，因为它已经被 <main> 完美居中 */
+/* 卡片样式 (现在可以安全地应用宽度) */
 .auth-page .card {
     background-color: rgba(30, 36, 42, 0.8);
     backdrop-filter: blur(10px);
     border: 1px solid var(--color-border);
     width: 100%;
-    max-width: 550px; /* 这个宽度现在可以自由生效了 */
+    max-width: 550px;
 }
 
 /* 针对登录/注册页面的表单组样式微调 */
@@ -1273,4 +1277,78 @@ body.auth-page::before {
 .form-help-text-block ul {
     padding-left: 1.2rem;
     margin: 0.5rem 0 0;
+}
+
+
+/* --- 网站全局页脚样式 --- */
+.site-footer {
+    background-color: var(--color-surface); /* 使用一个微妙的、稍亮的背景色 */
+    padding: 0.5rem 0; /* 提供充足的垂直内边距 */
+    margin-top: 6rem; /* 与上方主内容区保持距离 */
+    border-top: 1px solid var(--color-border); /* 顶部分割线 */
+    text-align: center; /* 所有内容居中 */
+}
+
+.site-footer .container {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.footer-primary-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--color-text-primary); /* 使用主文字颜色，更醒目 */
+    margin: 0 0 0.5rem 0; /* 与下方文字的间距 */
+}
+
+.footer-secondary-text {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary); /* 使用次要文字颜色，更柔和 */
+    margin: 0;
+}
+
+/* --- 首页：带刷新按钮的区域标题 --- */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.2rem; /* 保持与原h2的间距一致 */
+}
+
+.section-header h2 {
+    margin-bottom: 0; /* 移除h2自身的间距 */
+}
+
+.btn-refresh {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-refresh:hover {
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+.btn-refresh svg {
+    transition: transform 0.5s ease;
+}
+
+.btn-refresh:hover svg {
+    transform: rotate(180deg);
+}
+
+/* --- AJAX 加载效果 --- */
+.movie-grid.loading {
+    opacity: 0.5;
+    transition: opacity 0.3s ease-in-out;
+    pointer-events: none; /* 防止在加载时误点 */
 }

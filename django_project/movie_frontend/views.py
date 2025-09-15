@@ -74,11 +74,66 @@ def signup(request):
 
 
 def home(request):
-    movies = Movie.objects.all().prefetch_related(Prefetch('titles', queryset=MovieTitle.objects.all())).order_by(
-        '-release_year')[:12]
-    movies = _attach_display_titles(list(movies))
-    context = {'movies': movies, 'fav_ids': _get_fav_ids(request)}
+    # --- 热门电影展示逻辑 ---
+
+    # 1. 在这里指定希望固定展示的电影ID
+    # 可以通过后台管理或直接查询数据库来获取这些ID
+    featured_movie_ids = [263, 953, 100, 2, 90, 932, 481, 1288, 1010, 126, 1765,16]
+
+    # 2. 设置首页总共要展示的电影数量
+    total_movies_on_home = 12
+
+    # 3. 首先获取所有“精选”的电影对象
+    featured_movies = list(Movie.objects.filter(id__in=featured_movie_ids).prefetch_related('titles', 'genres'))
+
+    # 4. 计算还需要多少部随机电影
+    num_random_movies_needed = total_movies_on_home - len(featured_movies)
+
+    random_movies = []
+    if num_random_movies_needed > 0:
+        # 5. 从数据库中随机获取所需数量的电影
+        #    - 使用 exclude() 来确保不会重复选中精选电影
+        #    - 使用 order_by('?') 来实现随机排序
+        random_movies = list(
+            Movie.objects.exclude(id__in=featured_movie_ids)
+            .order_by('?')
+            .prefetch_related('titles', 'genres')
+            [:num_random_movies_needed]
+        )
+
+    # 6. 合并列表（精选电影在前，随机电影在后）
+    final_movies_list = featured_movies + random_movies
+
+    # --- 逻辑结束，后续处理不变 ---
+
+    movies = _attach_display_titles(final_movies_list)
+    context = {
+        'movies': movies,
+        'fav_ids': _get_fav_ids(request),
+    }
     return render(request, 'index.html', context)
+
+
+# --- 新增：处理AJAX请求的视图 ---
+def refresh_popular_movies(request):
+    # 这里的逻辑与 home 视图中的电影获取逻辑完全相同
+    featured_movie_ids = []
+    total_movies_on_home = 12
+    featured_movies = list(Movie.objects.filter(id__in=featured_movie_ids).prefetch_related('titles', 'genres'))
+    num_random_movies_needed = total_movies_on_home - len(featured_movies)
+    random_movies = []
+    if num_random_movies_needed > 0:
+        random_movies = list(
+            Movie.objects.exclude(id__in=featured_movie_ids)
+            .order_by('?')
+            .prefetch_related('titles', 'genres')
+            [:num_random_movies_needed]
+        )
+    final_movies_list = featured_movies + random_movies
+    movies = _attach_display_titles(final_movies_list)
+
+    # 关键区别：只渲染模板片段，而不是整个页面
+    return render(request, 'partials/_movie_grid.html', {'movies': movies})
 
 
 def movie_list(request):
