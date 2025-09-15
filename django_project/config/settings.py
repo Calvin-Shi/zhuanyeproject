@@ -122,6 +122,16 @@ DATABASES = {
     }
 }
 
+# 缓存配置 (用于持久化推荐模型)
+# 使用文件缓存，以便在服务重启后依然能保留训练好的模型，避免重复训练。
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        # 指定缓存文件的存放目录，这里设置为项目根目录下的 .cache 文件夹
+        'LOCATION': BASE_DIR.parent / '.cache',
+    }
+}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -167,7 +177,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Media files (uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-
-# --- 认证系统重定向URL配置 ---
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
