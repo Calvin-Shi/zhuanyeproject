@@ -139,8 +139,9 @@ h2 { font-size: 1.5rem; margin-bottom: 1.2rem; }
     color: #000;
 }
 .primary-btn:hover {
-    background-color: #fff;
+    background-color: #00E054;
     transform: translateY(-2px);
+    color: #000; /* 新增：确保悬停时文字变为黑色 */
 }
 
 /* --- 首页 Hero Section (核心修改) --- */
@@ -300,12 +301,12 @@ h2 { font-size: 1.5rem; margin-bottom: 1.2rem; }
     background-color: var(--color-surface);
     padding: 0.3rem 0.8rem;
     border-radius: 15px;
-    font-size: 0.6rem;
+    font-size: 1rem;
     color: var(--color-text-secondary);
     border: 1px solid var(--color-border);
 }
 .summary p {
-    font-size: 0.8rem;
+    font-size: 1.1rem;
     line-height: 1.7;
     color: var(--color-text-primary);
 }
@@ -1351,4 +1352,28 @@ body.auth-page::before {
     opacity: 0.5;
     transition: opacity 0.3s ease-in-out;
     pointer-events: none; /* 防止在加载时误点 */
+}
+
+
+/* --- 电影详情页：返回按钮 (修正版) --- */
+.btn-back {
+    /* 不再使用 position: absolute */
+    display: inline-flex; /* 使用flex布局让图标和文字对齐 */
+    align-items: center;
+    gap: 0.5rem;
+    background-color: rgba(30, 36, 42, 0.7);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    padding: 0.6rem 1.2rem;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    transition: all 0.2s ease;
+    margin-bottom: 1rem; /* 与下方的标题保持间距 */
+}
+
+.btn-back:hover {
+    background-color: var(--color-surface);
+    color: #fff;
 }
