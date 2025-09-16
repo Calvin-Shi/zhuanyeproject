@@ -1,0 +1,54 @@
+{% load url_helpers %}
+
+{# 新增：当搜索时，优先展示匹配到的类型和人物 #}
+{% if query %}
+<div class="search-results-entities" style="margin-top: 2rem;">
+    {% if people_results or genres_results %}
+        <h2>“{{ query }}”的直接匹配结果</h2>
+        <div class="entity-pills-grid">
+            {% for person in people_results %}
+            <button type="button" class="entity-pill btn-toggle-entity {% if person.id in favorite_people_ids %}added{% endif %}" data-entity-type="person" data-entity-id="{{ person.id }}" data-entity-name="{{ person.name }}">
+                {% if person.id in favorite_people_ids %}✓ {% endif %}{{ person.name }} (人物)
+            </button>
+            {% endfor %}
+            {% for genre in genres_results %}
+            <button type="button" class="entity-pill btn-toggle-entity {% if genre.id in favorite_genre_ids %}added{% endif %}" data-entity-type="genre" data-entity-id="{{ genre.id }}" data-entity-name="{{ genre.name }}">
+                {% if genre.id in favorite_genre_ids %}✓ {% endif %}{{ genre.name }} (类型)
+            </button>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+
+
+<h2 style="margin-top: 2rem;">
+    {% if query %}
+        与“{{ query }}”相关的电影
+    {% else %}
+        电影列表
+    {% endif %}
+</h2>
+
+<form method="post" id="favorites-form">
+    {% csrf_token %}
+    <div class="movie-grid choose-favorites-grid">
+        {% for movie in page_obj_movies.object_list %}
+            <label>
+                <input type="checkbox" name="favorites" value="{{ movie.id }}" class="favorite-checkbox">
+                <div class="movie-card">
+                    <div class="select-indicator"></div>
+                    {% if movie.poster_url %}
+                        <img src="{{ movie.poster_url }}" alt="{{ movie.display_title }}" class="poster-img">
+                    {% else %}
+                        <div class="poster-placeholder">{{ movie.display_title }}</div>
+                    {% endif %}
+                </div>
+            </label>
+        {% empty %}
+            <p>没有找到符合条件的电影。</p>
+        {% endfor %}
+    </div>
+    {# 升级：传入 param_name #}
+    {% include 'partials/_pagination.html' with page_obj=page_obj_movies param_name='movie_page' %}
+</form>

@@ -1,29 +1,37 @@
+{% load url_helpers %}
+
 {% comment %}
-This pagination template is now upgraded to preserve existing GET parameters.
-It requires one context variable:
+This pagination template is now upgraded to preserve existing GET parameters
+and use a dynamic page parameter name.
+It requires two context variables:
 - page_obj: The paginator page object.
+- param_name: The name for the page query parameter (e.g., 'movie_page').
 {% endcomment %}
+
 {% if page_obj.has_other_pages %}
 <div class="pagination">
     <div class="pagination-links">
-        {# MODIFIED: Removed invalid hyphens from template tags #}
-        {% with base_query=request.GET.urlencode|cut:"&page="|cut:"page=" %}
+        {# 构建一个不包含当前分页参数的基础查询字符串 #}
+        {% with current_param=param_name|default:'page' %}
+            {# 语法修正：移除了 'without' 关键字 #}
+            {% url_params request.GET current_param as base_query %}
+
             {% if page_obj.has_previous %}
-                <a href="?page=1{% if base_query %}&{{ base_query }}{% endif %}">&laquo; 首页</a>
-                <a href="?page={{ page_obj.previous_page_number }}{% if base_query %}&{{ base_query }}{% endif %}">上一页</a>
+                <a href="?{{ current_param }}=1{% if base_query %}&amp;{{ base_query }}{% endif %}">&laquo; 首页</a>
+                <a href="?{{ current_param }}={{ page_obj.previous_page_number }}{% if base_query %}&amp;{{ base_query }}{% endif %}">上一页</a>
             {% endif %}
 
             {% for i in page_obj.paginator.page_range %}
                 {% if page_obj.number == i %}
                     <span class="current">{{ i }}</span>
                 {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
-                    <a href="?page={{ i }}{% if base_query %}&{{ base_query }}{% endif %}">{{ i }}</a>
+                    <a href="?{{ current_param }}={{ i }}{% if base_query %}&amp;{{ base_query }}{% endif %}">{{ i }}</a>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if base_query %}&{{ base_query }}{% endif %}">下一页</a>
-                <a href="?page={{ page_obj.paginator.num_pages }}{% if base_query %}&{{ base_query }}{% endif %}">尾页 &raquo;</a>
+                <a href="?{{ current_param }}={{ page_obj.next_page_number }}{% if base_query %}&amp;{{ base_query }}{% endif %}">下一页</a>
+                <a href="?{{ current_param }}={{ page_obj.paginator.num_pages }}{% if base_query %}&amp;{{ base_query }}{% endif %}">尾页 &raquo;</a>
             {% endif %}
         {% endwith %}
     </div>

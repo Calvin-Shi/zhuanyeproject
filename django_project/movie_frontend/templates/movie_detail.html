@@ -5,13 +5,12 @@
 
 {% block content %}
 
-<!-- 1. 顶部背景图区域 -->
+<!-- 顶部背景图区域 -->
 <div class="movie-detail-header" {% if movie.backdrop_url %}style="background-image: url('{{ movie.backdrop_url }}');"{% endif %}>
     <div class="detail-header-content">
         <div class="detail-main-info">
             <img src="{{ movie.poster_url }}" alt="{{ movie.display_title }}" class="detail-poster">
             <div class="detail-title-group">
-                <!-- MODIFIED: 将返回按钮移动到标题上方 -->
                 <button onclick="history.back()" class="btn-back">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                     返回
@@ -26,18 +25,14 @@
                         {% endfor %}
                     {% endif %}
                 </p>
-
-                <!-- 操作按钮区域 -->
                 {% if user.is_authenticated %}
                 <div class="action-buttons">
-                    <!-- 收藏按钮 -->
                     <form action="{% url 'movie_frontend:toggle_watchlist' movie.id %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="btn primary-btn">
                             {% if is_in_watchlist %} 从收藏中移除 {% else %} 添加到收藏 {% endif %}
                         </button>
                     </form>
-                    <!-- 喜欢按钮 -->
                     <form action="{% url 'movie_frontend:toggle_favorite' movie.id %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="btn favorite-btn {% if is_in_favorites %}favorited{% endif %}">
@@ -53,7 +48,7 @@
     </div>
 </div>
 
-<!-- 2. 主体内容区域 -->
+<!-- 主体内容区域 -->
 <div class="container movie-detail-body">
     <div class="genres">
         {% for genre in movie.genres.all %}
@@ -79,26 +74,20 @@
     </section>
     {% endif %}
 
-    <!-- MODIFIED: 评论区重构 -->
-
     <section class="reviews-section">
-
-        <!-- 新增: 发表评论表单 -->
         {% if user.is_authenticated %}
         <div class="comment-form-container card">
             <h2>发表你的看法</h2>
-            <form id="comment-form" method="post">
+            <form id="comment-form" method="post" action="{% url 'movie_frontend:movie_detail' movie.id %}">
                 {% csrf_token %}
                 <div class="form-group">
                     <label for="{{ review_form.rating.id_for_label }}">{{ review_form.rating.label }}</label>
                     {{ review_form.rating }}
-                    {% if review_form.rating.help_text %}<small class="form-help-text">{{ review_form.rating.help_text }}</small>{% endif %}
                 </div>
                 <div class="form-group">
                     <label for="{{ review_form.review.id_for_label }}">{{ review_form.review.label }}</label>
                     {{ review_form.review }}
                 </div>
-                {% if review_form.errors %}{% for field, errors in review_form.errors.items %}{% for error in errors %}<p class="form-error">{{ error }}</p>{% endfor %}{% endfor %}{% endif %}
                 <button type="submit" class="btn primary-btn">发布评论</button>
             </form>
         </div>
@@ -106,47 +95,15 @@
         <p><a href="{% url 'login' %}?next={{ request.path }}">登录</a>后即可发表评论。</p>
         {% endif %}
 
-        <!-- 新增: 本站用户评论 -->
         <h2 style="margin-top: 3rem;">用户评论</h2>
-        <div class="reviews-list">
+        <div class="reviews-list" id="user-reviews-list">
             {% for review in user_reviews %}
-                <div class="review-card">
-                    <div class="review-header">
-                        <div class="review-author-info">
-                            <span class="review-source">{{ review.user.username }}</span>
-                            <small class="review-timestamp">{{ review.timestamp|date:"Y-m-d H:i" }}</small>
-                        </div>
-                        <span class="review-score">{{ review.rating|floatformat:1 }}/10.0</span>
-                    </div>
-                    <div class="review-content">
-                        <p>{{ review.review|linebreaksbr }}</p>
-                    </div>
-                    <div class="review-footer">
-                        <!-- MODIFIED: 点赞功能升级为AJAX -->
-                        <div class="like-section" data-review-id="{{ review.id }}">
-                            <button type="button" class="btn-like {% if review.id in liked_review_ids %}liked{% endif %}">
-                                <!-- MODIFIED: 提供了完整的SVG图标代码 -->
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                            </button>
-                            <span class="like-count">赞同数: {{ review.likes_count }}</span>
-                        </div>
-                        {% if request.user == review.user %}
-                            <div class="review-actions">
-                                <a href="{% url 'movie_frontend:edit_review' review.id %}" class="btn-edit">编辑</a>
-                                <form action="{% url 'movie_frontend:delete_review' review.id %}" method="post" onsubmit="return confirm('确定要删除这条评论吗？');">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn-delete">删除</button>
-                                </form>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
+                {% include 'partials/_comment_card.html' with review=review user=request.user liked_review_ids=liked_review_ids %}
             {% empty %}
-                <p>暂无用户评论，快来抢沙发吧！</p>
+                <p id="no-reviews-placeholder">暂无用户评论，快来抢沙发吧！</p>
             {% endfor %}
         </div>
 
-        <!-- 外部网站评论 -->
         <h2 style="margin-top: 3rem;">外部评论</h2>
         <div class="reviews-list">
             {% for review in external_reviews %}
@@ -157,7 +114,6 @@
                            {% if review.content_date %}<small class="review-timestamp">{{ review.content_date|date:"Y-m-d" }}</small>{% endif %}
                         </div>
                         {% if review.score is not None %}
-                            <!-- MODIFIED: 修正分值上限显示 -->
                             <span class="review-score">{{ review.score|floatformat:1 }}/{{ review.source.score_max|floatformat:1 }}</span>
                         {% endif %}
                     </div>
@@ -182,35 +138,115 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // --- 健壮的 CSRF Token 获取 ---
+    const csrftokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrftokenInput) {
+        console.error("CSRF token not found in any form!");
+        return;
+    }
+    const csrftoken = csrftokenInput.value;
 
-    document.querySelectorAll('.btn-like').forEach(button => {
-        button.addEventListener('click', function() {
-            const likeSection = this.closest('.like-section');
-            const reviewId = likeSection.dataset.reviewId;
+    const userReviewsList = document.getElementById('user-reviews-list');
 
-            fetch(`/review/${reviewId}/like/`, {
+    // --- 1. AJAX 提交新评论 ---
+    const commentForm = document.getElementById('comment-form');
+    if (commentForm) {
+        commentForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(commentForm);
+
+            fetch(commentForm.action, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrftoken
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify({}) // 即使没有数据也要发送body
+                body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.status === 'ok') {
-                    // 更新点赞计数
-                    const likeCountSpan = likeSection.querySelector('.like-count');
-                    likeCountSpan.textContent = `赞同数: ${data.likes_count}`;
-
-                    // 更新按钮样式
-                    this.classList.toggle('liked', data.is_liked);
+                    const placeholder = document.getElementById('no-reviews-placeholder');
+                    if (placeholder) placeholder.remove();
+                    userReviewsList.insertAdjacentHTML('afterbegin', data.html);
+                    commentForm.reset();
                 }
             })
-            .catch(error => console.error('点赞时出错:', error));
+            .catch(error => {
+                console.error('提交评论时出错:', error);
+                alert('评论发布失败: ' + (error.errors ? JSON.stringify(error.errors) : '请检查网络或稍后重试。'));
+            });
         });
-    });
+    }
+
+    // --- 2. 使用事件委托处理点赞和删除 ---
+    if (userReviewsList) {
+        // 分开处理 click 和 submit 事件，更清晰
+        userReviewsList.addEventListener('click', function(event) {
+            const likeButton = event.target.closest('.btn-like');
+            if (likeButton) {
+                // 点赞逻辑
+                const likeSection = likeButton.closest('.like-section');
+                const reviewId = likeSection.dataset.reviewId;
+                fetch(`/review/${reviewId}/like/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify({})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        const likeCountSpan = likeSection.querySelector('.like-count');
+                        if (likeCountSpan) likeCountSpan.textContent = `赞同数: ${data.likes_count}`;
+                        likeButton.classList.toggle('liked', data.is_liked);
+                    }
+                })
+                .catch(error => console.error('点赞时出错:', error));
+            }
+        });
+
+        // --- 核心修复：为删除操作单独创建一个更精确的 'submit' 事件监听器 ---
+        userReviewsList.addEventListener('submit', function(event) {
+            const targetForm = event.target;
+            if (targetForm.classList.contains('delete-review-form')) {
+                event.preventDefault();
+                if (!confirm('确定要删除这条评论吗？')) return;
+
+                const reviewCard = targetForm.closest('.review-card');
+                if (!reviewCard) return;
+
+                fetch(targetForm.action, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        // 如果后端返回错误(如500)，也抛出异常
+                        throw new Error(`服务器错误，状态码: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'ok') {
+                        reviewCard.remove();
+                    } else {
+                        // 处理后端返回的逻辑错误
+                        alert('删除失败：' + (data.message || '未知错误'));
+                    }
+                })
+                .catch(error => {
+                    // --- 这个 catch 块现在可以捕获所有网络和服务器错误 ---
+                    console.error('删除评论时出错:', error);
+                    alert('删除失败，请检查网络连接或查看F12控制台获取详细信息。');
+                });
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

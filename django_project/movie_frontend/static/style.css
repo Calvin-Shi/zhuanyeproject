@@ -1,3 +1,5 @@
+/* movie_frontend/static/style.css */
+
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
 :root {
@@ -1128,6 +1130,13 @@ body.floating-bar-active main {
     border-bottom: 1px solid var(--color-border);
 }
 .sub-tab-button {
+    /* --- 核心修复：重置按钮的默认样式 --- */
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit; /* 确保字体一致 */
+
+    /* --- 原有样式保持不变 --- */
     padding: 0.5rem 0;
     margin-bottom: -1px; /* 让下边框重合 */
     border-bottom: 3px solid transparent;

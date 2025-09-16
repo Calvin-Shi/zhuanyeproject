@@ -1,3 +1,4 @@
+from django.template.loader import render_to_string
 from django.http import JsonResponse
 import json
 from django.shortcuts import render, get_object_or_404, redirect
@@ -9,7 +10,7 @@ from django.views.decorators.http import require_POST
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch
 from django.db.models import F
 
 from films_recommender_system.models import (
@@ -22,6 +23,8 @@ from .forms import (
 
 from django.http import HttpResponseForbidden
 from django.core.paginator import Paginator
+# --- 新增：导入高级查询工具 ---
+from django.db.models import Q, Case, When, Value, IntegerField
 
 from django.core.cache import cache
 
@@ -138,32 +141,48 @@ def refresh_popular_movies(request):
 
 
 def movie_list(request):
+    # --- 升级：应用智能搜索逻辑 ---
+    query = request.GET.get('q', '').strip()
     qs = Movie.objects.all().prefetch_related('titles', 'genres').order_by('-release_year')
 
-    search_query = request.GET.get('q')
-    if search_query:
+    if query:
+        # 1. 过滤
         qs = qs.filter(
-            Q(titles__title_text__icontains=search_query) | Q(original_title__icontains=search_query)).distinct()
+            Q(titles__title_text__icontains=query) |
+            Q(original_title__icontains=query) |
+            Q(genres__name__icontains=query) |
+            Q(directors__name__icontains=query) |
+            Q(actors__name__icontains=query)
+        ).distinct()
+        # 2. 优先级排序
+        qs = qs.annotate(
+            match_priority=Case(
+                When(Q(titles__title_text__icontains=query) | Q(original_title__icontains=query), then=Value(3)),
+                When(Q(directors__name__icontains=query) | Q(actors__name__icontains=query), then=Value(2)),
+                When(Q(genres__name__icontains=query), then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            )
+        ).order_by('-match_priority', '-release_year') # 按优先级和年份排序
 
     selected_genre_id = request.GET.get('genre')
     if selected_genre_id and selected_genre_id.isdigit():
         gid = int(selected_genre_id)
         qs = qs.filter(genres__id=gid)
 
-    # --- 分页逻辑 ---
-    paginator = Paginator(qs, 24)  # 每页显示24部电影
+    paginator = Paginator(qs, 24)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     movies_with_titles = _attach_display_titles(list(page_obj.object_list))
-    page_obj.object_list = movies_with_titles  # 用处理过的列表替换
+    page_obj.object_list = movies_with_titles
 
     genres = list(Genre.objects.all())
     context = {
-        'page_obj': page_obj,  # 传递 page_obj 而不是 movies
+        'page_obj': page_obj,
         'genres': genres,
         'selected_genre_id': int(selected_genre_id) if selected_genre_id and selected_genre_id.isdigit() else None,
-        'query': search_query,
+        'query': query,
     }
     return render(request, 'movie_list.html', context)
 
@@ -172,50 +191,59 @@ def movie_detail(request, movie_id):
     movie = get_object_or_404(
         Movie.objects.prefetch_related('titles', 'genres', 'directors', 'actors', 'scriptwriters'), pk=movie_id)
 
-    if request.method == 'POST' and 'review' in request.POST and request.user.is_authenticated:
+    if request.method == 'POST' and request.user.is_authenticated:
         review_form = UserReviewForm(request.POST, user=request.user, movie=movie)
         if review_form.is_valid():
+            # --- 核心修复：正确的保存逻辑 ---
+            # 1. 先创建一个模型实例，但不提交到数据库
             new_review = review_form.save(commit=False)
+            # 2. 手动关联必需的 user 和 movie 字段
             new_review.user = request.user
             new_review.movie = movie
+            # 3. 现在可以安全地保存了
             new_review.save()
+            # --- 修复结束 ---
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                html = render_to_string(
+                    'partials/_comment_card.html',
+                    {'review': new_review, 'user': request.user, 'liked_review_ids': set()},
+                    request=request
+                )
+                return JsonResponse({'status': 'ok', 'html': html})
+
             messages.success(request, "你的评论已成功发布！")
             return redirect('movie_frontend:movie_detail', movie_id=movie.id)
-    else:
-        review_form = UserReviewForm()
+        else:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'errors': review_form.errors}, status=400)
 
+    # ... (GET 请求处理部分无修改) ...
+    review_form = UserReviewForm()
     setattr(movie, 'display_title', _display_title(movie))
-
     external_reviews = Review.objects.filter(movie=movie).select_related('source').order_by('-content_date')[:20]
     user_reviews = UserReview.objects.filter(movie=movie).select_related('user').order_by('-timestamp')
-
     is_in_watchlist = False
     is_in_favorites = False
-    liked_review_ids = set()  # 新增: 初始化一个空集合
-
+    liked_review_ids = set()
     if request.user.is_authenticated:
         BrowsingHistory.objects.update_or_create(user=request.user, movie=movie)
-        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
         is_in_watchlist = profile.watchlist.filter(pk=movie.id).exists()
-        is_in_favorites = movie.id in _get_fav_ids(request)
-
-        # 新增: 获取当前用户已点赞的评论ID
+        recommendation, _ = Recommendation.objects.get_or_create(user=request.user)
+        is_in_favorites = recommendation.favorite_movies.filter(pk=movie.id).exists()
         liked_review_ids = set(
-            UserReview.objects.filter(
-                id__in=user_reviews.values_list('id', flat=True),
-                liked_by=request.user
-            ).values_list('id', flat=True)
+            UserReview.objects.filter(id__in=user_reviews.values_list('id', flat=True), liked_by=request.user)
+            .values_list('id', flat=True)
         )
-
     context = {
         'movie': movie,
         'external_reviews': external_reviews,
         'user_reviews': user_reviews,
         'review_form': review_form,
-        'fav_ids': _get_fav_ids(request),
         'is_in_watchlist': is_in_watchlist,
         'is_in_favorites': is_in_favorites,
-        'liked_review_ids': liked_review_ids,  # 传递到模板
+        'liked_review_ids': liked_review_ids,
     }
     return render(request, 'movie_detail.html', context)
 
@@ -251,39 +279,43 @@ def like_review(request, review_id):
 
 @login_required
 def edit_review(request, review_id):
-    review = get_object_or_404(UserReview, pk=review_id)
-
-    # 权限检查：确保是评论作者本人
-    if request.user != review.user:
-        return HttpResponseForbidden("你没有权限修改他人的评论。")
+    review = get_object_or_404(UserReview, pk=review_id, user=request.user)
 
     if request.method == 'POST':
         form = UserReviewForm(request.POST, instance=review, user=request.user, movie=review.movie)
         if form.is_valid():
-            form.save()
+            updated_review = form.save()
+            # --- 升级：为AJAX请求返回JSON ---
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'ok',
+                    'rating': updated_review.rating,
+                    'review_text': updated_review.review
+                })
             messages.success(request, "评论修改成功！")
             return redirect('movie_frontend:movie_detail', movie_id=review.movie.id)
-    else:
-        form = UserReviewForm(instance=review)
+        else:
+             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
 
-    # 创建一个单独的模板来处理编辑
+    # GET请求保持不变，仍然渲染编辑页面
+    form = UserReviewForm(instance=review)
     return render(request, 'edit_review.html', {'form': form, 'review': review})
 
 
 @require_POST
 @login_required
 def delete_review(request, review_id):
-    review = get_object_or_404(UserReview, pk=review_id)
+    review = get_object_or_404(UserReview, pk=review_id, user=request.user)
     movie_id = review.movie.id
-
-    # 权限检查
-    if request.user != review.user:
-        return HttpResponseForbidden("你没有权限删除他人的评论。")
-
     review.delete()
+
+    # --- 升级：为AJAX请求返回JSON ---
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok', 'message': '评论已删除。'})
+
     messages.success(request, "评论已删除。")
     return redirect('movie_frontend:movie_detail', movie_id=movie_id)
-
 
 # MODIFIED: 重写 toggle_favorite 视图
 @require_POST
@@ -349,32 +381,69 @@ def choose_favorites(request):
         # 推荐页面加载时，会自动调用API获取基于新喜好的推荐
         return redirect('movie_frontend:recommendations')
 
-    # --- GET 请求处理 (与上一版完全相同) ---
+    # --- GET 请求处理 (升级) ---
     query = request.GET.get('q', '').strip()
-    main_tab = request.GET.get('main_tab', 'search')
-    sub_tab = request.GET.get('sub_tab', 'directors')
 
+    # --- 升级1：为AJAX分页增加一个'partial'参数 ---
+    partial_target = request.GET.get('partial', None)
+
+    # --- 升级2：智能搜索，同时搜索类型和人物 ---
+    genres_results = Person.objects.none()
+    people_results = Genre.objects.none()
+    if query:
+        genres_results = Genre.objects.filter(name__icontains=query)
+        people_results = Person.objects.filter(name__icontains=query)
+
+    # --- 升级3：带优先级排序的电影搜索 ---
+    movies_qs = Movie.objects.all().prefetch_related('titles', 'genres', 'directors', 'actors')
+    if query:
+        # 1. 先过滤出所有可能相关的电影
+        movies_qs = movies_qs.filter(
+            Q(titles__title_text__icontains=query) |
+            Q(original_title__icontains=query) |
+            Q(genres__name__icontains=query) |
+            Q(directors__name__icontains=query) |
+            Q(actors__name__icontains=query)
+        ).distinct()
+
+        # 2. 使用 annotate 和 Case/When 为结果动态添加优先级字段
+        movies_qs = movies_qs.annotate(
+            match_priority=Case(
+                # 最高优先级：标题直接匹配
+                When(Q(titles__title_text__icontains=query) | Q(original_title__icontains=query), then=Value(3)),
+                # 第二优先级：人物匹配
+                When(Q(directors__name__icontains=query) | Q(actors__name__icontains=query), then=Value(2)),
+                # 最低优先级：类型匹配
+                When(Q(genres__name__icontains=query), then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            )
+        )
+        # 3. 按优先级和真值分数排序
+        movies_qs = movies_qs.order_by('-match_priority', '-truth_score')
+
+    # --- 演员和导演列表查询 (逻辑不变) ---
     all_genres = Genre.objects.all().order_by('name')
     directors_qs = Person.objects.filter(directed_movies__isnull=False).distinct().order_by('name')
     actors_qs = Person.objects.filter(acted_in_movies__isnull=False).distinct().order_by('name')
 
-    movies_qs = Movie.objects.all().prefetch_related('titles').order_by('-release_year')
-    if query:
-        movies_qs = movies_qs.filter(
-            Q(titles__title_text__icontains=query) | Q(original_title__icontains=query) |
-            Q(directors__name__icontains=query) | Q(actors__name__icontains=query)
-        ).distinct()
+    # --- 分页逻辑 (保持不变) ---
+    movie_page_number = request.GET.get('movie_page', 1)
+    director_page_number = request.GET.get('director_page', 1)
+    actor_page_number = request.GET.get('actor_page', 1)
 
     movies_paginator = Paginator(movies_qs, 18)
     directors_paginator = Paginator(directors_qs, 30)
     actors_paginator = Paginator(actors_qs, 30)
-    page_number = request.GET.get('page', 1)
-    page_obj_movies = movies_paginator.get_page(page_number)
-    page_obj_directors = directors_paginator.get_page(page_number)
-    page_obj_actors = actors_paginator.get_page(page_number)
+
+    page_obj_movies = movies_paginator.get_page(movie_page_number)
+    page_obj_directors = directors_paginator.get_page(director_page_number)
+    page_obj_actors = actors_paginator.get_page(actor_page_number)
+
     movies_with_titles = _attach_display_titles(list(page_obj_movies.object_list))
     page_obj_movies.object_list = movies_with_titles
 
+    # --- 获取用户喜好 (逻辑不变) ---
     favorite_people_ids, favorite_genre_ids, initial_favorite_movie_ids = set(), set(), []
     if request.user.is_authenticated:
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
@@ -382,20 +451,36 @@ def choose_favorites(request):
         favorite_genre_ids = set(profile.favorite_genres.values_list('id', flat=True))
         rec, _ = Recommendation.objects.get_or_create(user=request.user)
         initial_favorite_movie_ids = list(rec.favorite_movies.values_list('id', flat=True))
-        _set_fav_ids(request, initial_favorite_movie_ids)
 
     context = {
         'page_obj_movies': page_obj_movies,
         'page_obj_directors': page_obj_directors,
         'page_obj_actors': page_obj_actors,
         'all_genres': all_genres,
-        'main_tab': main_tab,
-        'sub_tab': sub_tab,
         'query': query,
         'favorite_people_ids': favorite_people_ids,
         'favorite_genre_ids': favorite_genre_ids,
         'initial_favorite_movie_ids_json': json.dumps(initial_favorite_movie_ids),
+        'genres_results': genres_results,
+        'people_results': people_results,
     }
+
+    # --- 升级4：根据 partial 参数返回不同的HTML片段 ---
+    if partial_target == 'directors':
+        return render(request, 'partials/_people_grid.html',
+                      {'page_obj': page_obj_directors, 'favorite_people_ids': favorite_people_ids,
+                       'param_name': 'director_page'})
+
+    if partial_target == 'actors':
+        return render(request, 'partials/_people_grid.html',
+                      {'page_obj': page_obj_actors, 'favorite_people_ids': favorite_people_ids,
+                       'param_name': 'actor_page'})
+
+    # 主搜索的AJAX请求
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'partials/_favorites_search_results.html', context)
+
+    # 正常的全页面加载
     return render(request, 'choose_favorites.html', context)
 
 

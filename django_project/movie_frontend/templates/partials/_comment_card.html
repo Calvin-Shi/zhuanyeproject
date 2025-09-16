@@ -1,0 +1,29 @@
+<div class="review-card" id="review-{{ review.id }}">
+    <div class="review-header">
+        <div class="review-author-info">
+            <span class="review-source">{{ review.user.username }}</span>
+            <small class="review-timestamp">{{ review.timestamp|date:"Y-m-d H:i" }}</small>
+        </div>
+        <span class="review-score">{{ review.rating|floatformat:1 }}/10.0</span>
+    </div>
+    <div class="review-content">
+        <p>{{ review.review|linebreaksbr }}</p>
+    </div>
+    <div class="review-footer">
+        <div class="like-section" data-review-id="{{ review.id }}">
+            <button type="button" class="btn-like {% if review.id in liked_review_ids %}liked{% endif %}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            </button>
+            <span class="like-count">赞同数: {{ review.likes_count }}</span>
+        </div>
+        {% if user == review.user %}
+            <div class="review-actions">
+                <a href="{% url 'movie_frontend:edit_review' review.id %}" class="btn-edit">编辑</a>
+                <form class="delete-review-form" action="{% url 'movie_frontend:delete_review' review.id %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-delete">删除</button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+</div>

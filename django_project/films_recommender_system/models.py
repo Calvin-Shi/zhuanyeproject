@@ -15,7 +15,7 @@ class Genre(models.Model):
 
 # 导演/编剧/演员姓名
 class Person(models.Model):
-    name = models.CharField(max_length=200, unique=True, help_text='导演/编剧/演员姓名')
+    name = models.CharField(max_length=200, unique=True, db_index=True,  help_text='导演/编剧/演员姓名')
 
     def __str__(self): return self.name
 
@@ -64,7 +64,7 @@ class MovieTitle(models.Model):
     存储电影可能存在的多个译名，与 Movie 模型是一对多的关系
     """
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='titles', help_text='关联的电影')
-    title_text = models.CharField(max_length=200, help_text='标题内容')
+    title_text = models.CharField(max_length=200, db_index=True, help_text='标题内容')
     language = models.CharField(max_length=10, default='zh-CN', help_text='语言代码(e.g. zh-CN, en)')
     is_primary = models.BooleanField(default=False, help_text='是否为用于显示的主标题')
 
