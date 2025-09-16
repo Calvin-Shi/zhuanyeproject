@@ -1,3 +1,5 @@
+# films_recommender_system/models.py
+
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -38,6 +40,9 @@ class Movie(models.Model):
     # 电影海报和剧照图链接
     poster_url = models.URLField(null=True, blank=True, help_text='电影海报链接')
     backdrop_url = models.URLField(null=True, blank=True, help_text='电影剧照图链接')
+
+    # --- 新增：用于冷启动推荐的真值分数 ---
+    truth_score = models.FloatField(default=0.0, db_index=True, help_text="根据多源评分计算的全局真值分数")
 
     # 电影标识
     class Meta:
@@ -92,7 +97,9 @@ class Review(models.Model):
     approvals_num = models.IntegerField(null=True, blank=True, help_text='该评论被赞同数')
 
     def __str__(self):
-        return f"Review for {self.movie.titles.filter(is_primary=True).first()} from {self.source.name}"
+        primary_title = self.movie.titles.filter(is_primary=True).first()
+        movie_title = primary_title.title_text if primary_title else "Unknown Movie"
+        return f"Review for {movie_title} from {self.source.name}"
 
 
 # ------ 用户行为模型 ------
@@ -106,8 +113,7 @@ class UserProfile(models.Model):
     # 收藏/待看列表
     watchlist = models.ManyToManyField(Movie, related_name='watchlisted_by', blank=True)
 
-    # --- 新增：用户的偏好 ---
-    # Person模型同时代表演员和导演，因此一个字段即可
+    # --- 用户的偏好 ---
     favorite_people = models.ManyToManyField(Person, related_name='favorited_by_users', blank=True,
                                              help_text="用户喜欢的演员/导演")
     favorite_genres = models.ManyToManyField(Genre, related_name='favorited_by_users', blank=True,
@@ -126,7 +132,7 @@ class UserReview(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     likes_count = models.IntegerField(default=0, help_text='该评论被赞同数')
 
-    # 新增: 记录哪些用户赞同了这条评论
+    # 记录哪些用户赞同了这条评论
     liked_by = models.ManyToManyField(User, related_name='liked_reviews', blank=True)
 
     class Meta:
@@ -158,8 +164,13 @@ class BrowsingHistory(models.Model):
 # 推荐信息
 class Recommendation(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
-    # 用户的“喜欢”列表，用于生成推荐
+
+    # 用户的“喜欢”列表，作为算法的输入
     favorite_movies = models.ManyToManyField(Movie, related_name='favorited_by', blank=True)
+
+    # 存储由算法生成的推荐电影ID列表
+    recommended_movie_ids = models.JSONField(null=True, blank=True, help_text="存储由算法生成的推荐电影ID列表")
+
     last_update = models.DateTimeField(auto_now=True)
 
     def __str__(self):

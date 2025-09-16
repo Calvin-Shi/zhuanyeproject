@@ -1,29 +1,128 @@
 {% extends 'base.html' %}
-{% block title %}我的推荐 - 电影推荐系统{% endblock %}
+{% load static %}
+{% block title %}为你推荐{% endblock %}
 
 {% block content %}
 <div class="container">
-    <section class="recommendations-header">
-        <h1>为你推荐</h1>
-        <p>基于你的喜好，为你精选了以下电影。</p>
-    </section>
+    <div class="section-header">
+        <h2>为你推荐</h2>
+        <p style="color: var(--color-text-secondary);">基于你的喜好、评分和浏览历史为你精选。</p>
+    </div>
 
-    <div class="movie-grid">
-        {% for movie in movies %}
-            <a href="{% url 'movie_frontend:movie_detail' movie.id %}" class="movie-card">
-                {% if movie.poster_url %}
-                    <img src="{{ movie.poster_url }}" alt="{{ movie.display_title }}" class="poster-img">
-                {% else %}
-                    <div class="poster-placeholder">{{ movie.display_title }}</div>
-                {% endif %}
-                <div class="overlay">
-                    <div class="title">{{ movie.display_title }}</div>
-                    <div class="year">{{ movie.release_year }}</div>
-                </div>
-            </a>
-        {% empty %}
-            <p>还没有为你生成推荐，请先 <a href="{% url 'movie_frontend:choose_favorites' %}">选择你喜欢的电影</a>。</p>
-        {% endfor %}
+    <!-- 推荐内容容器 -->
+    <div id="recommendations-container">
+        <!-- 1. 初始加载状态 -->
+        <div class="loader-container" id="loader">
+            <div class="loader"></div>
+            <p>正在为你生成专属推荐，请稍候...</p>
+        </div>
+
+        <!-- 2. 电影网格 (初始为空且隐藏) -->
+        <div class="movie-grid" id="recommendations-grid" style="display: none;"></div>
+
+        <!-- 3. 空状态/错误状态 (初始隐藏) -->
+        <div id="empty-state" style="display: none;"></div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('recommendations-container');
+    const loader = document.getElementById('loader');
+    const grid = document.getElementById('recommendations-grid');
+    const emptyStateContainer = document.getElementById('empty-state');
+
+    // 安全地获取用户名，或为匿名用户使用特定标识符
+    const username = "{{ user.username|default:'' }}";
+    const userIdForApi = username ? username : 'anonymous';
+
+    async function fetchAndRenderRecommendations() {
+        try {
+            // 步骤 1: 获取推荐的电影 IMDB ID 列表
+            const recsResponse = await fetch(`/api/recommendations/realtime/${userIdForApi}/`);
+            if (!recsResponse.ok) {
+                // 如果响应是 404 或其他错误，抛出异常以便在 catch 中处理
+                throw new Error(`推荐服务失败，状态码: ${recsResponse.status}`);
+            }
+            const recsData = await recsResponse.json();
+            const movieIds = recsData.recommendations;
+
+            if (!movieIds || movieIds.length === 0) {
+                // 处理 API 返回空列表的情况
+                showEmptyState();
+                return;
+            }
+
+            // 步骤 2: 使用获取的 ID 批量获取电影详情
+            const idsQuery = movieIds.join(',');
+            const detailsResponse = await fetch(`/api/movies/batch-details/?ids=${idsQuery}`);
+            if (!detailsResponse.ok) {
+                throw new Error('获取电影详情失败');
+            }
+            const movies = await detailsResponse.json();
+
+            // 步骤 3: 使用详情渲染电影网格
+            renderMovieGrid(movies);
+
+        } catch (error) {
+            console.error('获取推荐过程中出错:', error);
+            showEmptyState(true); // 传递 true 表示是错误状态
+        }
+    }
+
+    function renderMovieGrid(movies) {
+        if (movies.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        let gridHtml = movies.map(movie => {
+            const detailUrl = `/movies/${movie.id}/`;
+            const posterHtml = movie.poster_url
+                ? `<img src="${movie.poster_url}" alt="${movie.display_title}" class="poster-img">`
+                : `<div class="poster-placeholder">${movie.display_title}</div>`;
+
+            return `
+                <a href="${detailUrl}" class="movie-card">
+                    ${posterHtml}
+                    <div class="overlay">
+                        <div class="title">${movie.display_title}</div>
+                        <div class="year">${movie.release_year || ''}</div>
+                    </div>
+                </a>
+            `;
+        }).join('');
+
+        loader.style.display = 'none';
+        grid.innerHTML = gridHtml;
+        grid.style.display = 'grid';
+    }
+
+    function showEmptyState(isError = false) {
+        loader.style.display = 'none';
+        let emptyHtml;
+        if (isError) {
+            emptyHtml = `
+                <div class="empty-state-container">
+                    <h2>推荐服务暂时不可用</h2>
+                    <p>在生成推荐时遇到了一些问题，请稍后再试。</p>
+                </div>`;
+        } else {
+            emptyHtml = `
+                <div class="empty-state-container">
+                    <h2>我们还不太了解你</h2>
+                    <p>我们暂时还没有足够的信息来为你生成推荐。尝试添加一些你喜欢的电影吧！</p>
+                    <a href="{% url 'movie_frontend:choose_favorites' %}" class="btn primary-btn">去选择我的喜好</a>
+                </div>`;
+        }
+        emptyStateContainer.innerHTML = emptyHtml;
+        emptyStateContainer.style.display = 'block';
+    }
+
+    // 页面加载后立即开始执行
+    fetchAndRenderRecommendations();
+});
+</script>
 {% endblock %}

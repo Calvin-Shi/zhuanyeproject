@@ -1377,3 +1377,46 @@ body.auth-page::before {
     background-color: var(--color-surface);
     color: #fff;
 }
+
+
+/* --- 推荐页面：加载动画样式 --- */
+.loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    color: var(--color-text-secondary);
+}
+.loader {
+    border: 4px solid var(--color-surface);
+    border-top: 4px solid var(--color-primary);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1.5rem;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --- 推荐页面：美化版空状态 --- */
+.empty-state-container {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 4rem 2rem;
+    background-color: var(--color-surface);
+    border-radius: 8px;
+}
+.empty-state-container h2 {
+    font-size: 1.8rem;
+    color: #fff;
+    margin-bottom: 1rem;
+}
+.empty-state-container p {
+    font-size: 1.1rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 2rem;
+}

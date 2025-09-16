@@ -122,13 +122,16 @@ DATABASES = {
     }
 }
 
-# 缓存配置 (用于持久化推荐模型)
-# 使用文件缓存，以便在服务重启后依然能保留训练好的模型，避免重复训练。
+# CACHES 配置
+# 使用基于文件的缓存，确保命令行和Web服务器进程可以共享缓存数据
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-        # 指定缓存文件的存放目录，这里设置为项目根目录下的 .cache 文件夹
-        'LOCATION': BASE_DIR.parent / '.cache',
+        'LOCATION': BASE_DIR.parent / 'django_cache', # 将缓存文件存放在项目根目录下的 'django_cache' 文件夹中
+        'TIMEOUT': 60 * 60 * 24 * 7, # 缓存有效期7天
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000  # 缓存条目上限
+        }
     }
 }
 

@@ -23,6 +23,7 @@ from .forms import (
 from django.http import HttpResponseForbidden
 from django.core.paginator import Paginator
 
+from django.core.cache import cache
 
 # 其他的工具函数
 def _display_title(movie):
@@ -314,29 +315,38 @@ def toggle_favorite(request, movie_id):
 
 
 # ... (recommendations, choose_favorites, toggle_watchlist 视图无变化) ...
+# ... (其他 import 保持不变) ...
+
 @login_required
 def recommendations(request):
-    rec, _ = Recommendation.objects.get_or_create(user=request.user)
-    favorite_movies_from_db = list(rec.favorite_movies.all().values_list('id', flat=True))
-    _set_fav_ids(request, favorite_movies_from_db)
-    movies = _attach_display_titles(list(rec.favorite_movies.all().prefetch_related('titles', 'genres')))
-    return render(request, 'recommendations.html', {'movies': movies})
+    # 这个视图现在非常简单，只负责渲染一个“容器”页面。
+    # 所有的推荐数据都将通过前端的AJAX请求，从 films_recommender_system 的API获取。
+    return render(request, 'recommendations.html')
 
 
 def choose_favorites(request):
     if request.method == 'POST':
-        # MODIFIED: 读取由JS动态生成的完整喜好列表
+        # 确保用户已登录才能提交喜好
+        if not request.user.is_authenticated:
+            return redirect('login')
+
         favorite_ids_str = request.POST.get('favorite_ids_json', '[]')
         try:
             ids = set(map(int, json.loads(favorite_ids_str)))
         except (json.JSONDecodeError, ValueError):
             ids = set()
 
-        # Session 和 数据库同步更新为最终状态
-        _set_fav_ids(request, list(ids))
-        if request.user.is_authenticated:
-            rec, _ = Recommendation.objects.get_or_create(user=request.user)
-            rec.favorite_movies.set(Movie.objects.filter(id__in=ids))
+        # 获取或创建用户的推荐配置
+        rec, _ = Recommendation.objects.get_or_create(user=request.user)
+
+        # 使用 .set() 方法高效地更新多对多关系
+        # 它会自动处理添加、删除和清空的操作
+        rec.favorite_movies.set(Movie.objects.filter(id__in=ids))
+
+        messages.success(request, "你的喜好已更新！正在为你生成新的推荐...")
+
+        # 直接重定向到推荐页面
+        # 推荐页面加载时，会自动调用API获取基于新喜好的推荐
         return redirect('movie_frontend:recommendations')
 
     # --- GET 请求处理 (与上一版完全相同) ---
