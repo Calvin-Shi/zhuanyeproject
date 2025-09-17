@@ -1294,7 +1294,7 @@ body.auth-page::before {
 .site-footer {
     background-color: var(--color-surface); /* 使用一个微妙的、稍亮的背景色 */
     padding: 0.5rem 0; /* 提供充足的垂直内边距 */
-    margin-top: 6rem; /* 与上方主内容区保持距离 */
+    margin-top: 7rem; /* 与上方主内容区保持距离 */
     border-top: 1px solid var(--color-border); /* 顶部分割线 */
     text-align: center; /* 所有内容居中 */
 }
