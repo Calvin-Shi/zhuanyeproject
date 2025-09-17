@@ -28,6 +28,59 @@ from django.db.models import Q, Case, When, Value, IntegerField
 
 from django.core.cache import cache
 
+
+# --- 辅助函数：带优先级排序的内存搜索 ---
+def search_from_index(query):
+    query = query.lower()
+    search_index = cache.get('global_search_index')
+
+    if not search_index:
+        # 降级方案：如果缓存不存在，执行带优先级的数据库查询
+        qs = Movie.objects.filter(
+            Q(titles__title_text__icontains=query) | Q(original_title__icontains=query) |
+            Q(genres__name__icontains=query) | Q(directors__name__icontains=query) | Q(actors__name__icontains=query)
+        ).distinct()
+        qs = qs.annotate(
+            match_priority=Q(Case(
+                When(Q(titles__title_text__icontains=query) | Q(original_title__icontains=query), then=Value(3)),
+                When(Q(directors__name__icontains=query) | Q(actors__name__icontains=query), then=Value(2)),
+                When(Q(genres__name__icontains=query), then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ))
+        ).order_by('-match_priority', '-truth_score')
+        return qs
+
+    # 在内存中进行高速的、带优先级的查找
+    matches = {}  # 使用字典来存储匹配结果和最高优先级
+    for item in search_index:
+        priority = 0
+        if query in item['title_text']:
+            priority = 3
+        elif query in item['people_text']:
+            priority = 2
+        elif query in item['genre_text']:
+            priority = 1
+
+        if priority > 0:
+            # 只存储每个ID的最高匹配优先级
+            if item['id'] not in matches or priority > matches[item['id']]['priority']:
+                matches[item['id']] = {
+                    'priority': priority,
+                    'truth_score': item['truth_score']
+                }
+
+    if not matches:
+        return Movie.objects.none()
+
+    # 对匹配结果进行排序：主关键字为优先级，次关键字为真值分数
+    sorted_ids = sorted(matches.keys(), key=lambda id: (matches[id]['priority'], matches[id]['truth_score']),
+                        reverse=True)
+
+    # 为了保持排序，需要使用Case/When从数据库中按指定顺序获取对象
+    ordering = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(sorted_ids)])
+    return Movie.objects.filter(pk__in=sorted_ids).order_by(ordering)
+
 # 其他的工具函数
 def _display_title(movie):
     primary_title = movie.titles.filter(is_primary=True, language__icontains='zh').first()
@@ -143,32 +196,29 @@ def refresh_popular_movies(request):
 def movie_list(request):
     # --- 升级：应用智能搜索逻辑 ---
     query = request.GET.get('q', '').strip()
-    qs = Movie.objects.all().prefetch_related('titles', 'genres').order_by('-release_year')
+
+    # --- 升级：智能高亮逻辑 ---
+    # 1. 优先从URL参数获取用户明确点击的 genre ID
+    selected_genre_id = request.GET.get('genre')
+
+    # 2. 如果没有明确的 genre ID，但有文本查询，则尝试将文本匹配为 Genre
+    if query and not selected_genre_id:
+        # 使用 iexact 进行不区分大小写的精确匹配
+        matching_genre = Genre.objects.filter(name__iexact=query).first()
+        if matching_genre:
+            # 如果找到了匹配的类型，就使用它的ID作为高亮目标
+            selected_genre_id = matching_genre.id
+    # --- 结束 ---
 
     if query:
-        # 1. 过滤
-        qs = qs.filter(
-            Q(titles__title_text__icontains=query) |
-            Q(original_title__icontains=query) |
-            Q(genres__name__icontains=query) |
-            Q(directors__name__icontains=query) |
-            Q(actors__name__icontains=query)
-        ).distinct()
-        # 2. 优先级排序
-        qs = qs.annotate(
-            match_priority=Case(
-                When(Q(titles__title_text__icontains=query) | Q(original_title__icontains=query), then=Value(3)),
-                When(Q(directors__name__icontains=query) | Q(actors__name__icontains=query), then=Value(2)),
-                When(Q(genres__name__icontains=query), then=Value(1)),
-                default=Value(0),
-                output_field=IntegerField()
-            )
-        ).order_by('-match_priority', '-release_year') # 按优先级和年份排序
+        # --- 升级：使用缓存索引进行搜索 ---
+        qs = search_from_index(query)
+    else:
+        qs = Movie.objects.all().order_by('-release_year')
 
-    selected_genre_id = request.GET.get('genre')
-    if selected_genre_id and selected_genre_id.isdigit():
-        gid = int(selected_genre_id)
-        qs = qs.filter(genres__id=gid)
+    # 如果用户点击了类型标签（即使是在搜索结果页），进一步过滤
+    if selected_genre_id:
+        qs = qs.filter(genres__id=selected_genre_id)
 
     paginator = Paginator(qs, 24)
     page_number = request.GET.get('page')
@@ -181,7 +231,8 @@ def movie_list(request):
     context = {
         'page_obj': page_obj,
         'genres': genres,
-        'selected_genre_id': int(selected_genre_id) if selected_genre_id and selected_genre_id.isdigit() else None,
+        # 确保将最终确定的 selected_genre_id (可能为 str) 转换为 int
+        'selected_genre_id': int(selected_genre_id) if selected_genre_id else None,
         'query': query,
     }
     return render(request, 'movie_list.html', context)
@@ -381,46 +432,21 @@ def choose_favorites(request):
         # 推荐页面加载时，会自动调用API获取基于新喜好的推荐
         return redirect('movie_frontend:recommendations')
 
-    # --- GET 请求处理 (升级) ---
+    # --- GET 请求处理 ---
     query = request.GET.get('q', '').strip()
-
-    # --- 升级1：为AJAX分页增加一个'partial'参数 ---
     partial_target = request.GET.get('partial', None)
 
-    # --- 升级2：智能搜索，同时搜索类型和人物 ---
     genres_results = Person.objects.none()
     people_results = Genre.objects.none()
     if query:
         genres_results = Genre.objects.filter(name__icontains=query)
         people_results = Person.objects.filter(name__icontains=query)
 
-    # --- 升级3：带优先级排序的电影搜索 ---
-    movies_qs = Movie.objects.all().prefetch_related('titles', 'genres', 'directors', 'actors')
     if query:
-        # 1. 先过滤出所有可能相关的电影
-        movies_qs = movies_qs.filter(
-            Q(titles__title_text__icontains=query) |
-            Q(original_title__icontains=query) |
-            Q(genres__name__icontains=query) |
-            Q(directors__name__icontains=query) |
-            Q(actors__name__icontains=query)
-        ).distinct()
-
-        # 2. 使用 annotate 和 Case/When 为结果动态添加优先级字段
-        movies_qs = movies_qs.annotate(
-            match_priority=Case(
-                # 最高优先级：标题直接匹配
-                When(Q(titles__title_text__icontains=query) | Q(original_title__icontains=query), then=Value(3)),
-                # 第二优先级：人物匹配
-                When(Q(directors__name__icontains=query) | Q(actors__name__icontains=query), then=Value(2)),
-                # 最低优先级：类型匹配
-                When(Q(genres__name__icontains=query), then=Value(1)),
-                default=Value(0),
-                output_field=IntegerField()
-            )
-        )
-        # 3. 按优先级和真值分数排序
-        movies_qs = movies_qs.order_by('-match_priority', '-truth_score')
+        movies_qs = search_from_index(query)
+    else:
+        # 无搜索时，按真值分数排序
+        movies_qs = Movie.objects.all().order_by('-truth_score')
 
     # --- 演员和导演列表查询 (逻辑不变) ---
     all_genres = Genre.objects.all().order_by('name')

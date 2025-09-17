@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let userHasInteracted = false;
     let debounceTimer; // 用于防抖的计时器
 
-    // --- 核心逻辑函数 ---
+    // --- 核心逻辑函数 (完整版) ---
 
     function updateFloatingBar() {
         const count = selectedMovieIds.size;
@@ -147,10 +147,6 @@ document.addEventListener('DOMContentLoaded', function() {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             const query = searchInput.value;
-            if (query.trim() === '' && "{{ query|default:'' }}" === '') {
-                // 只有当初始也无查询且输入框也为空时才不搜索
-                return;
-            }
             const url = `{% url 'movie_frontend:choose_favorites' %}?q=${encodeURIComponent(query)}`;
             searchResultsContainer.style.opacity = '0.5';
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -163,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateFloatingBar();
             })
             .catch(error => { console.error('搜索时出错:', error); searchResultsContainer.style.opacity = '1'; });
-        }, 350); // 延迟350毫秒
+        }, 350); // 延迟350毫秒后执行
     });
 
     // --- AJAX 人物分页 ---
