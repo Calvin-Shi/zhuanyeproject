@@ -15,16 +15,13 @@
             <button class="tab-button" data-tab="people">导演/演员</button>
         </div>
         <div class="tab-content-container">
-            <!-- 搜索选项卡 -->
             <div class="tab-pane" id="tab-search">
                 <form id="entity-search-form" class="entity-search-form" onsubmit="return false;">
                     <div class="search-bar-wrapper">
                         <input type="text" name="q" id="search-input" placeholder="输入后自动搜索电影、演员、导演或类型..." value="{{ query|default:'' }}" class="search-input">
-                        {# 移除了提交按钮，改为输入时自动搜索 #}
                     </div>
                 </form>
             </div>
-            <!-- 浏览类型选项卡 -->
             <div class="tab-pane" id="tab-genres">
                 <div class="entity-pills-grid">
                     {% for genre in all_genres %}
@@ -34,19 +31,15 @@
                     {% endfor %}
                 </div>
             </div>
-            <!-- 发现人物选项卡 -->
             <div class="tab-pane" id="tab-people">
                 <div class="sub-tabs">
                     <button class="sub-tab-button active" data-target="#directors-pane">导演</button>
                     <button class="sub-tab-button" data-target="#actors-pane">演员</button>
                 </div>
-
                 <div id="directors-pane" class="sub-tab-pane active">
                     {% include 'partials/_people_grid.html' with page_obj=page_obj_directors favorite_people_ids=favorite_people_ids param_name='director_page' %}
                 </div>
-
                 <div id="actors-pane" class="sub-tab-pane">
-                    {# 初始为空，由AJAX填充 #}
                     <div class="loader-container"><div class="loader"></div></div>
                 </div>
             </div>
@@ -61,7 +54,7 @@
 <div id="floating-actions-bar" class="actions-bar floating">
     <div class="container">
         <span id="selection-counter"></span>
-        <button type="submit" form="favorites-form" class="btn primary-btn">提交喜好，查看推荐</button>
+        <button type="submit" id="submit-favorites-btn" class="btn primary-btn">提交喜好，查看推荐</button>
     </div>
 </div>
 {% endblock %}
@@ -70,20 +63,23 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const body = document.body;
-    const floatingBar = document.getElementById('floating-actions-bar');
-    const counter = document.getElementById('selection-counter');
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     const searchInput = document.getElementById('search-input');
-    const searchResultsContainer = document.getElementById('search-results-container');
+
+    // 将所有动态内容区域的父容器作为事件委托的目标
+    const mainContainer = document.querySelector('.container');
 
     const initialFavoriteIds = new Set({{ initial_favorite_movie_ids_json|safe }});
     let selectedMovieIds = new Set(initialFavoriteIds);
     let userHasInteracted = false;
-    let debounceTimer; // 用于防抖的计时器
+    let debounceTimer;
 
-    // --- 核心逻辑函数 (完整版) ---
+    // --- 核心工具函数 ---
 
     function updateFloatingBar() {
+        const floatingBar = document.getElementById('floating-actions-bar');
+        const counter = document.getElementById('selection-counter');
+        if (!floatingBar || !counter) return;
         const count = selectedMovieIds.size;
         if (count > 0) {
             if (!userHasInteracted && initialFavoriteIds.size > 0 && count === initialFavoriteIds.size) {
@@ -99,135 +95,147 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function initializeEntityToggleButtons(container) {
-        container.querySelectorAll('.btn-toggle-entity').forEach(button => {
-            if (button.dataset.initialized) return;
-            button.dataset.initialized = true;
-            const entityName = button.dataset.entityName;
-            button.addEventListener('click', function() {
-                const entityType = this.dataset.entityType;
-                const entityId = this.dataset.entityId;
-                fetch("{% url 'movie_frontend:toggle_favorite_entity' %}", {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
-                    body: JSON.stringify({entity_type: entityType, entity_id: entityId})
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'ok') {
-                        if (data.action === 'added') {
-                            this.innerHTML = `✓ ${entityName}`; this.classList.add('added');
-                        } else {
-                            this.innerHTML = entityName; this.classList.remove('added');
-                        }
-                    }
-                });
-            });
-        });
-    }
-
-    function initializeMovieCheckboxes(container) {
+    function updateCheckboxesInContainer(container) {
         container.querySelectorAll('.favorite-checkbox').forEach(checkbox => {
             const movieId = parseInt(checkbox.value);
             checkbox.checked = selectedMovieIds.has(movieId);
-            checkbox.addEventListener('change', () => {
-                userHasInteracted = true;
-                if (checkbox.checked) {
-                    selectedMovieIds.add(movieId);
-                } else {
-                    selectedMovieIds.delete(movieId);
-                }
-                updateFloatingBar();
-            });
         });
     }
 
-    // --- 带防抖的AJAX搜索 ---
+    // --- AJAX 请求函数 ---
+
+    function performAjaxRequest(url, container, callback) {
+        container.style.opacity = '0.5';
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(response => response.text())
+        .then(html => {
+            container.innerHTML = html;
+            container.style.opacity = '1';
+            if (callback) callback(container);
+        })
+        .catch(error => { console.error('AJAX请求出错:', error); container.style.opacity = '1'; });
+    }
+
+    // --- 事件监听 (使用事件委托) ---
+
+    // 监听整个容器内的点击事件
+    mainContainer.addEventListener('click', function(event) {
+        const target = event.target;
+
+        // 委托处理：实体（类型/人物）的添加/移除
+        const entityButton = target.closest('.btn-toggle-entity');
+        if (entityButton) {
+            const entityName = entityButton.dataset.entityName;
+            const entityType = entityButton.dataset.entityType;
+            const entityId = entityButton.dataset.entityId;
+            fetch("{% url 'movie_frontend:toggle_favorite_entity' %}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                body: JSON.stringify({entity_type: entityType, entity_id: entityId})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    const isAdded = data.action === 'added';
+                    entityButton.classList.toggle('added', isAdded);
+                    entityButton.innerHTML = isAdded ? `✓ ${entityName}` : entityName;
+                }
+            });
+            return;
+        }
+
+        // 委托处理：所有分页链接
+        if (target.tagName === 'A' && target.closest('.pagination')) {
+            event.preventDefault();
+            const paginationContainer = target.closest('.sub-tab-pane, #search-results-container');
+            if (!paginationContainer) return;
+
+            // --- 核心修复：智能判断并添加 partial 参数 ---
+            let partialName = null;
+            if (paginationContainer.id === 'directors-pane') {
+                partialName = 'directors';
+            } else if (paginationContainer.id === 'actors-pane') {
+                partialName = 'actors';
+            }
+
+            const finalUrl = new URL(target.href);
+            if (partialName) {
+                finalUrl.searchParams.set('partial', partialName);
+            }
+            // --- 修复结束 ---
+
+            performAjaxRequest(finalUrl.toString(), paginationContainer, (newContainer) => {
+                updateCheckboxesInContainer(newContainer);
+            });
+            return;
+        }
+
+        // 委托处理：导演/演员 子选项卡切换
+        if (target.classList.contains('sub-tab-button')) {
+            if (target.classList.contains('active')) return;
+            const subTabsContainer = target.closest('.sub-tabs');
+            subTabsContainer.querySelectorAll('.sub-tab-button').forEach(btn => btn.classList.remove('active'));
+            target.classList.add('active');
+            const targetPaneId = target.dataset.target;
+            document.querySelectorAll('.sub-tab-pane').forEach(pane => pane.classList.remove('active'));
+            const targetPane = document.querySelector(targetPaneId);
+            targetPane.classList.add('active');
+            if (targetPaneId === '#actors-pane' && !targetPane.querySelector('.entity-pills-grid')) {
+                const url = `{% url 'movie_frontend:choose_favorites' %}?partial=actors`;
+                performAjaxRequest(url, targetPane);
+            }
+            return;
+        }
+    });
+
+    // 为复选框使用独立的 'change' 事件委托
+    mainContainer.addEventListener('change', function(event){
+        if (event.target.classList.contains('favorite-checkbox')) {
+            userHasInteracted = true;
+            const movieId = parseInt(event.target.value);
+            if (event.target.checked) {
+                selectedMovieIds.add(movieId);
+            } else {
+                selectedMovieIds.delete(movieId);
+            }
+            updateFloatingBar();
+        }
+    });
+
+    // 带防抖的搜索输入监听
     searchInput.addEventListener('input', function() {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             const query = searchInput.value;
             const url = `{% url 'movie_frontend:choose_favorites' %}?q=${encodeURIComponent(query)}`;
-            searchResultsContainer.style.opacity = '0.5';
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(response => response.text())
-            .then(html => {
-                searchResultsContainer.innerHTML = html;
-                searchResultsContainer.style.opacity = '1';
-                initializeMovieCheckboxes(searchResultsContainer);
-                initializeEntityToggleButtons(searchResultsContainer);
-                updateFloatingBar();
-            })
-            .catch(error => { console.error('搜索时出错:', error); searchResultsContainer.style.opacity = '1'; });
-        }, 350); // 延迟350毫秒后执行
+            const searchResultsContainer = document.getElementById('search-results-container');
+            performAjaxRequest(url, searchResultsContainer, (newContainer) => {
+                updateCheckboxesInContainer(newContainer);
+            });
+        }, 350);
     });
 
-    // --- AJAX 人物分页 ---
-    function initializeAjaxPagination(containerSelector, partialName) {
-        const container = document.querySelector(containerSelector);
-        if (!container) return;
-        container.addEventListener('click', function(event) {
-            if (event.target.tagName === 'A' && event.target.closest('.pagination-links')) {
-                event.preventDefault();
-                const url = event.target.href;
-                const finalUrl = new URL(url);
-                finalUrl.searchParams.set('partial', partialName);
-                container.style.opacity = '0.5';
-                fetch(finalUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(response => response.text())
-                .then(html => {
-                    container.innerHTML = html;
-                    container.style.opacity = '1';
-                    initializeEntityToggleButtons(container);
-                })
-                .catch(error => { console.error('分页时出错:', error); container.style.opacity = '1'; });
-            }
-        });
-    }
-
-    // --- AJAX 子选项卡切换 ---
-    const subTabsContainer = document.querySelector('.sub-tabs');
-    if (subTabsContainer) {
-        subTabsContainer.addEventListener('click', function(event) {
-            if (event.target.classList.contains('sub-tab-button')) {
-                const button = event.target;
-                if (button.classList.contains('active')) return;
-                subTabsContainer.querySelectorAll('.sub-tab-button').forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                const targetPaneId = button.dataset.target;
-                document.querySelectorAll('.sub-tab-pane').forEach(pane => pane.classList.remove('active'));
-                const targetPane = document.querySelector(targetPaneId);
-                targetPane.classList.add('active');
-                if (targetPaneId === '#actors-pane' && !targetPane.querySelector('.entity-pills-grid')) {
-                    const url = `{% url 'movie_frontend:choose_favorites' %}?partial=actors`;
-                    targetPane.style.opacity = '0.5';
-                    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                    .then(response => response.text())
-                    .then(html => {
-                        targetPane.innerHTML = html;
-                        targetPane.style.opacity = '1';
-                        initializeEntityToggleButtons(targetPane);
-                        initializeAjaxPagination('#actors-pane', 'actors');
-                    })
-                    .catch(error => { console.error('加载演员列表时出错:', error); targetPane.style.opacity = '1'; });
-                }
-            }
-        });
-    }
-
-    // --- 表单提交 (事件委托) ---
-    document.addEventListener('submit', function(event) {
-        if (event.target.id === 'favorites-form') {
-            event.preventDefault();
-            const form = event.target;
+    // 最终提交按钮的监听
+    const submitBtn = document.getElementById('submit-favorites-btn');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{% url 'movie_frontend:choose_favorites' %}";
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrftoken;
+            form.appendChild(csrfInput);
             const hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
             hiddenInput.name = 'favorite_ids_json';
             hiddenInput.value = JSON.stringify(Array.from(selectedMovieIds));
             form.appendChild(hiddenInput);
+            document.body.appendChild(form);
             form.submit();
-        }
-    });
+        });
+    }
 
     // --- 主选项卡切换 ---
     function activateMainTab(tabId) {
@@ -241,12 +249,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const initialMainTab = new URLSearchParams(window.location.search).get('main_tab') || 'search';
     activateMainTab(initialMainTab);
 
-    // --- 页面初次加载时初始化所有交互 ---
-    initializeEntityToggleButtons(document);
-    initializeMovieCheckboxes(document);
+    // --- 页面初次加载时初始化 ---
     updateFloatingBar();
-    initializeAjaxPagination('#directors-pane', 'directors');
-    initializeAjaxPagination('#actors-pane', 'actors');
+    updateCheckboxesInContainer(mainContainer);
 });
 </script>
 {% endblock %}

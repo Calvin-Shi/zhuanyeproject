@@ -4,86 +4,71 @@ import os
 
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 import pandas as pd
-from scipy.sparse import coo_matrix
-import implicit
 from django.core.management.base import BaseCommand
 from django.core.cache import cache
-from films_recommender_system.models import Movie, UserReview, Recommendation, BrowsingHistory
-import numpy as np
-
-# 数据充足性的最低要求
-MIN_INTERACTIONS = 50  # 至少需要50条交互记录
-MIN_UNIQUE_MOVIES = 20  # 至少需要20部被交互过的电影
+from films_recommender_system.models import Movie
+from sklearn.feature_extraction.text import TfidfVectorizer
+from tqdm import tqdm
 
 
 class Command(BaseCommand):
-    help = 'Trains the core recommendation model and caches the assets for real-time use.'
+    help = 'Builds and caches content-based feature vectors for all movies.'
 
     def handle(self, *args, **options):
-        self.stdout.write("开始训练核心推荐模型...")
-        self.stdout.write("[1/3] 从数据库获取交互数据...")
+        self.stdout.write("开始为所有电影构建内容画像向量...")
 
-        reviews_qs = UserReview.objects.select_related('user', 'movie')
-        reviews_list = list(reviews_qs.values('user__username', 'movie__imdb_id', 'rating'))
-        reviews_df = pd.DataFrame(reviews_list).rename(
-            columns={'user__username': 'user_id', 'movie__imdb_id': 'item_id'})
-        if not reviews_df.empty: reviews_df['weight'] = reviews_df['rating']
+        # 1. 获取所有电影及其相关内容
+        movies = Movie.objects.prefetch_related('genres', 'directors', 'actors').all()
 
-        fav_movies_qs = Recommendation.favorite_movies.through.objects.select_related('recommendation__user', 'movie')
-        fav_movies_list = list(fav_movies_qs.values('recommendation__user__username', 'movie__imdb_id'))
-        fav_movies_df = pd.DataFrame(fav_movies_list).rename(
-            columns={'recommendation__user__username': 'user_id', 'movie__imdb_id': 'item_id'})
-        if not fav_movies_df.empty: fav_movies_df['weight'] = 5.0
-
-        history_qs = BrowsingHistory.objects.select_related('user', 'movie')
-        history_list = list(history_qs.values('user__username', 'movie__imdb_id'))
-        history_df = pd.DataFrame(history_list).rename(
-            columns={'user__username': 'user_id', 'movie__imdb_id': 'item_id'})
-        if not history_df.empty: history_df['weight'] = 0.5
-
-        interactions_df = pd.concat([reviews_df, fav_movies_df, history_df], ignore_index=True)
-
-        # --- 新增：数据充足性检查 ---
-        if interactions_df.shape[0] < MIN_INTERACTIONS:
-            self.stderr.write(self.style.ERROR(
-                f"交互数据过少 ({interactions_df.shape[0]}条)，少于最低要求的 {MIN_INTERACTIONS} 条。任务中止，不会生成模型缓存。"))
-            # 同时确保旧的坏缓存被删除
-            cache.delete('recommendation_model_assets')
-            self.stdout.write(self.style.WARNING("已清除可能存在的旧模型缓存。"))
+        if not movies:
+            self.stderr.write(self.style.ERROR("数据库中没有电影，任务中止。"))
             return
 
-        interactions_df.sort_values('weight', ascending=False, inplace=True)
-        interactions_df.drop_duplicates(subset=['user_id', 'item_id'], keep='first', inplace=True)
+        documents = []
+        movie_ids_in_order = []
 
-        movies_qs = Movie.objects.filter(imdb_id__isnull=False)
-        valid_movie_ids = set(movies_qs.values_list('imdb_id', flat=True))
-        interactions_df = interactions_df[interactions_df['item_id'].isin(valid_movie_ids)].copy()
+        for movie in tqdm(movies, desc="[1/2] 创建特征文档"):
+            if not movie.imdb_id:
+                continue
 
-        if interactions_df['item_id'].nunique() < MIN_UNIQUE_MOVIES:
-            self.stderr.write(self.style.ERROR(
-                f"被交互过的电影数量过少 ({interactions_df['item_id'].nunique()}部)，少于最低要求的 {MIN_UNIQUE_MOVIES} 部。任务中止。"))
-            cache.delete('recommendation_model_assets')
-            self.stdout.write(self.style.WARNING("已清除可能存在的旧模型缓存。"))
+            # 为每部电影创建一个由其内容特征（类型、导演、演员）组成的“词袋”
+            features = []
+
+            # 为特征添加前缀以避免混淆（例如，类型'Action'和演员'Action Bronson'）
+            for genre in movie.genres.all():
+                features.append(f"genre_{genre.name.replace(' ', '')}")
+
+            for director in movie.directors.all():
+                features.append(f"director_{director.name.replace(' ', '')}")
+
+            for actor in movie.actors.all():
+                features.append(f"actor_{actor.name.replace(' ', '')}")
+
+            if features:
+                documents.append(" ".join(features))
+                movie_ids_in_order.append(movie.imdb_id)
+
+        if not documents:
+            self.stderr.write(self.style.ERROR("没有任何电影有关联的内容特征，无法构建模型。"))
             return
-        # --- 检查结束 ---
 
-        self.stdout.write("[2/3] 正在训练 ALS 模型...")
-        interactions_df['user_id'] = interactions_df['user_id'].astype("category")
-        interactions_df['item_id'] = interactions_df['item_id'].astype("category")
-        item_map = {name: i for i, name in enumerate(interactions_df['item_id'].cat.categories)}
-        reverse_item_map = {i: name for name, i in item_map.items()}
-        item_user_matrix = coo_matrix(
-            (interactions_df['weight'].astype(np.float32),
-             (interactions_df['item_id'].cat.codes, interactions_df['user_id'].cat.codes))
-        ).tocsr()
-        als_model = implicit.als.AlternatingLeastSquares(factors=64, regularization=0.01, iterations=20)
-        als_model.fit(item_user_matrix)
+        # 2. 使用TF-IDF将“词袋”转换为数学向量
+        self.stdout.write("[2/2] 正在使用TF-IDF进行向量化...")
+        vectorizer = TfidfVectorizer(max_features=1000)  # 限制特征维度，防止过大
+        movie_vectors = vectorizer.fit_transform(documents).toarray()  # 转换为NumPy数组
 
-        self.stdout.write("[3/3] 正在缓存模型资产...")
+        # 3. 构建并缓存资产
+        # 现在的item_map是imdb_id到向量数组行索引的映射
+        item_map = {imdb_id: i for i, imdb_id in enumerate(movie_ids_in_order)}
+
         model_assets = {
-            'item_vectors': als_model.item_factors,
+            'item_vectors': movie_vectors,
             'item_map': item_map,
-            'reverse_item_map': reverse_item_map,
+            # 在这个模型中，我们不再需要 reverse_item_map，因为ID本身就是名称
         }
-        cache.set('recommendation_model_assets', model_assets, timeout=60 * 60 * 24 * 7)
-        self.stdout.write(self.style.SUCCESS("核心模型训练完成并已成功缓存！"))
+
+        cache.set('recommendation_model_assets', model_assets, timeout=None)
+
+        self.stdout.write(self.style.SUCCESS("内容画像向量构建完成并已成功缓存！"))
+        self.stdout.write(f"  - 向量维度: {movie_vectors.shape}")
+        self.stdout.write(f"  - 映射长度: {len(item_map)}")

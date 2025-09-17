@@ -14,6 +14,8 @@ from rest_framework.response import Response
 import logging
 import numpy as np
 from django.core.cache import cache
+# --- 新增：导入余弦相似度计算工具 ---
+from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
 
@@ -50,67 +52,63 @@ class RealtimeRecommendationView(APIView):
 
     def get(self, request, user_id, *args, **kwargs):
         logger.info(f"收到用户 '{user_id}' 的实时推荐请求")
-
-        # 尝试获取用户信息
         try:
             user = User.objects.get(username=user_id)
         except User.DoesNotExist:
             user = None
 
-        # --- 第一层：尝试基于模型的个性化推荐 ---
         model_assets = cache.get('recommendation_model_assets')
         if model_assets and user:
             try:
-                # 运行安全检查和实时推断
-                return self.get_model_based_recommendations(user, model_assets)
+                response = self.get_content_based_recommendations(user, model_assets)
+                return response
             except Exception as e:
-                logger.warning(f"模型实时推断失败: {e}。将尝试其他备用方案。")
+                logger.warning(f"内容模型实时推断失败: {e}。将尝试备用方案。")
 
-        # --- 第二层：基于内容的偏好推荐 ---
         if user:
             response = self.get_profile_based_recommendations(user)
             if response:
                 return response
 
-        # --- 第三层：全局热门推荐 ---
         return self.get_global_fallback_recommendations()
 
-    def get_model_based_recommendations(self, user, model_assets):
-        # 检查缓存健康度
+    def get_content_based_recommendations(self, user, model_assets):
         item_vectors = model_assets['item_vectors']
         item_map = model_assets['item_map']
-        max_index_in_map = max(item_map.values()) if item_map else -1
-        if max_index_in_map >= item_vectors.shape[0]:
-            raise ValueError("缓存数据不一致")
 
-        # 获取用户喜好
         rec_profile = Recommendation.objects.get(user=user)
         favorite_movie_pks = list(rec_profile.favorite_movies.values_list('id', flat=True))
         if not favorite_movie_pks: raise ValueError("用户无喜好电影")
 
-        # 实时推断
         favorite_movies_imdb_ids = list(
             Movie.objects.filter(pk__in=favorite_movie_pks).values_list('imdb_id', flat=True))
         favorite_indices = [item_map[imdb_id] for imdb_id in favorite_movies_imdb_ids if imdb_id in item_map]
         if not favorite_indices: raise ValueError("喜好电影均不在模型中")
 
-        user_vector = item_vectors[favorite_indices].mean(axis=0)
-        scores = np.dot(item_vectors, user_vector)
-        top_indices = np.argsort(scores)[::-1][:100]
+        # 1. 计算用户的平均兴趣向量
+        user_vector = item_vectors[favorite_indices].mean(axis=0).reshape(1, -1)
 
-        # 结果过滤
+        # 2. 计算用户向量与所有电影向量的余弦相似度
+        scores = cosine_similarity(user_vector, item_vectors)[0]
+
+        # 3. 获取分数最高的电影的索引
+        # argsort返回的是从小到大的索引，所以需要反转
+        top_indices = np.argsort(scores)[::-1]
+
+        # 4. 结果过滤
         favorite_imdb_set = set(favorite_movies_imdb_ids)
+        # 反向映射现在可以直接从 item_map 创建
+        reverse_item_map = {i: imdb_id for imdb_id, i in item_map.items()}
         recommended_imdb_ids = []
-        reverse_item_map = model_assets['reverse_item_map']
         for index in top_indices:
             imdb_id = reverse_item_map.get(index)
             if imdb_id and imdb_id not in favorite_imdb_set:
                 recommended_imdb_ids.append(imdb_id)
             if len(recommended_imdb_ids) >= 50: break
 
-        logger.info(f"成功为用户 '{user.username}' 生成基于模型的推荐。")
+        logger.info(f"成功为用户 '{user.username}' 生成基于内容的推荐。")
         return Response(
-            {"user_id": user.username, "source": "realtime_inference", "recommendations": recommended_imdb_ids})
+            {"user_id": user.username, "source": "content_based_inference", "recommendations": recommended_imdb_ids})
 
     def get_profile_based_recommendations(self, user):
         try:
