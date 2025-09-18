@@ -23,8 +23,8 @@ DATA_DIR   = ROOT_DIR / "data"
 OUT_DIR    = ROOT_DIR / "truth_value_out"
 OUT_DIR.mkdir(exist_ok=True, parents=True)
 
-IN_MOVIES  = DATA_DIR / "movies.csv"
-IN_REVIEWS = DATA_DIR / "reviews_douban.csv"
+IN_MOVIES  = DATA_DIR / "movies_letterdoxd_details_merged_v1.csv"
+IN_REVIEWS = DATA_DIR / "reviews_letterdoxd_merged_v1.csv"
 
 # 工具函数：把分数/人数/时间戳转成数值；统一 user_id/item_id
 def _to_float(x):
@@ -55,102 +55,166 @@ def _read_csv_smart(path: Path) -> pd.DataFrame:
         return pd.read_csv(path, encoding="utf-8-sig")
 
 # 读取与清洗
-def step1_load_clean():
-    # 电影表
+def load_clean():
+    # --- 电影详情（列：imdb_id, original_title, alternative_titles, release_year, genres, directors, actors,
+    #                summary, length, rating, rating_max, rating_num, detail_url, poster_url, backdrop_url, status）
     movies = _read_csv_smart(IN_MOVIES)
-    # 均分是 0~10；爬虫里已经把 star = 均分/2（0~5），这里统一兜底
-    movies["douban_average_score"] = movies["douban_average_score"].apply(_to_float)
-    movies["douban_star_rating"]   = movies["douban_star_rating"].apply(_to_float)
-    movies["number_of_ratings"]    = movies["number_of_ratings"].apply(_to_int)
+    movies.columns = [c.strip() for c in movies.columns]
 
-    # 若 star 缺失，用 average_score/2 兜底
-    mask = movies["douban_star_rating"].isna()
-    movies.loc[mask, "douban_star_rating"] = movies.loc[mask, "douban_average_score"] / 2.0
+    # 基础清洗
+    movies["rating"]     = movies["rating"].apply(_to_float)         # 0~5
+    movies["rating_num"] = movies["rating_num"].apply(_to_int).fillna(0).astype(int)
 
-    # 评论表
+    # ——关键：构造 (规范化标题, 年份) 的“唯一”映射——
+    # 1) 生成 title 列表：原名 + 别名（按 '/' 分割）
+    def _norm(s):  # 统一大小写与空白
+        return str(s).strip().casefold()
+
+    movies["original_title_norm"] = movies["original_title"].apply(_norm)
+    alt = movies.get("alternative_titles", "")
+    movies["alt_list"] = alt.fillna("").astype(str).apply(lambda s: [t.strip() for t in s.split("/") if t.strip()])
+
+    # 2) 展开成多行（每个 title 一个键），带上年份与 imdb_id / rating_num 作决策依据
+    rows = []
+    for idx, row in movies.iterrows():
+        year = str(row.get("release_year", "")).strip()
+        imdb = row.get("imdb_id", "")
+        rn   = int(row.get("rating_num", 0)) if pd.notna(row.get("rating_num", 0)) else 0
+        # 原名
+        if row["original_title_norm"]:
+            rows.append({"title_norm": row["original_title_norm"], "release_year": year, "imdb_id": imdb, "rating_num": rn})
+        # 别名
+        for t in row["alt_list"]:
+            rows.append({"title_norm": _norm(t), "release_year": year, "imdb_id": imdb, "rating_num": rn})
+
+    if not rows:
+        raise RuntimeError("电影详情展开为空，请检查 movies CSV。")
+
+    mv_keys = pd.DataFrame(rows)
+    # 3) 对 (title_norm, release_year) 分组，保留 rating_num 最大的那条，得到**唯一**映射
+    mv_keys = mv_keys.sort_values(["title_norm", "release_year", "rating_num"], ascending=[True, True, False])
+    mv_keys_unique = mv_keys.drop_duplicates(subset=["title_norm", "release_year"], keep="first")[["title_norm", "release_year", "imdb_id"]]
+
+    # --- 评论（列：original_title, release_year, nickname, score, score_max, content, content_date, approvals_num）
     reviews = _read_csv_smart(IN_REVIEWS)
-    reviews["score"] = reviews["score"].apply(_to_float)
-    reviews["ts"]    = reviews["comment_time"].apply(_parse_dt)
-    reviews["user_id"] = reviews["author"].astype(str)
+    reviews.columns = [c.strip() for c in reviews.columns]
+
+    req_cols = {"original_title","release_year","nickname","score","content_date","approvals_num"}
+    missing = [c for c in req_cols if c not in reviews.columns]
+    if missing:
+        raise KeyError(f"评论表缺少所需列：{missing}；当前列：{list(reviews.columns)}")
+
+    # 基础清洗
+    reviews["score"]   = reviews["score"].apply(_to_float)           # 0~5
+    reviews["ts"]      = pd.to_datetime(reviews["content_date"], errors="coerce")
+    reviews["user_id"] = reviews["nickname"].astype(str)
+    reviews["approvals_num"] = reviews["approvals_num"].apply(_to_int).fillna(0)
+
+    # 规范化标题 + 年份，准备 merge
+    reviews["title_norm"]   = reviews["original_title"].apply(_norm)
+    reviews["release_year"] = reviews["release_year"].astype(str).str.strip()
+
+    # ——用 merge 回填 imdb_id → item_id（避免 index 唯一性问题）——
+    reviews = reviews.merge(
+        mv_keys_unique,
+        on=["title_norm", "release_year"],
+        how="left",
+        validate="m:1"  # 每条评论最多匹配到一部电影
+    )
+
+    # 统计未匹配
+    miss_cnt = reviews["imdb_id"].isna().sum()
+    if miss_cnt > 0:
+        print(f"[WARN] 有 {miss_cnt} 条评论无法通过 (title, year) 匹配到 imdb_id，将被丢弃并记录到 truth_value_out/unmatched_reviews.csv")
+        unmatched = reviews[reviews["imdb_id"].isna()].copy()
+        unmatched_out = OUT_DIR / "unmatched_reviews.csv"
+        unmatched.to_csv(unmatched_out, index=False)
+
+    # 丢弃未匹配项，并生成 item_id
+    reviews = reviews.dropna(subset=["imdb_id"]).copy()
     reviews["item_id"] = reviews["imdb_id"].astype(str)
 
+    # 只保留下游使用的列（其余列保留也无妨，不影响后续）
+    # return 原 movies（后续需要 imdb_id/rating/rating_num 等），以及带 item_id 的 reviews
     return movies, reviews
 
+
+
+
+
 # 电影“质量真值”——贝叶斯校准
-def step2_item_quality(movies: pd.DataFrame, C: int = 80) -> pd.DataFrame:
+def item_quality(movies: pd.DataFrame, C: int = 80) -> pd.DataFrame:
     """
     s_hat_5 = (m*C + R*N) / (C+N)
-    R: 电影的平均星级(0~5)；N:评分人数；m:全局先验均值；C:先验强度
+    R: Letterboxd 星级(0~5)；N:评分人数；m:全局均值；C:先验强度
     """
-    R = movies["douban_star_rating"]
-    N = movies["number_of_ratings"].fillna(0)
+    R = movies["rating"]
+    N = movies["rating_num"].fillna(0)
     m = R.mean()
 
-    # 避免除零：当 N=0 时直接回退到 m
     s_hat_5 = (m * C + R * N) / (C + N.replace(0, np.nan))
     s_hat_5 = s_hat_5.fillna(m).round(3)
 
     item_quality = movies[[
         "imdb_id", "original_title", "release_year", "genres",
-        "douban_average_score", "douban_star_rating", "number_of_ratings"
+        "rating", "rating_num"
     ]].copy()
     item_quality.rename(columns={"imdb_id": "item_id"}, inplace=True)
     item_quality["s_hat_5"] = s_hat_5
     item_quality["prior_m"] = round(m, 3)
     item_quality["C"] = C
 
+    # ===== 在这里加：按 item_id 去重，保留 rating_num 最大的一条 =====
+    item_quality = (
+        item_quality
+        .assign(rating_num=item_quality["rating_num"].fillna(0).astype(float))
+        .sort_values(["item_id", "rating_num"], ascending=[True, False])
+        .drop_duplicates(subset=["item_id"], keep="first")
+    )
+    # ===============================================================
+
     item_quality.to_csv(OUT_DIR / "item_quality.csv", index=False)
     print(f"[OK] {OUT_DIR/'item_quality.csv'} -> {len(item_quality)} rows")
     return item_quality
 
-#  用户→电影“偏好真值”——显式 + 隐式
-def _implicit_weight(status: str) -> float:
-    """
-    隐式行为的置信度权重：
-      想看=0.3，看过=0.6，未知=0.1（也可以选择丢弃未知，见下方注释）
-    """
-    if not isinstance(status, str):
-        return 0.0
-    if "想看" in status:
-        return 0.3
-    if "看过" in status:
-        return 0.6
-    if "未知" in status:
-        return 0.1
-    return 0.0
 
-def step3_interactions_gt(reviews: pd.DataFrame) -> pd.DataFrame:
-    # 显式评分：≥4 为正，≤2 为负；3星丢弃
+
+#  用户→电影“偏好真值”——显式
+def interactions_gt(reviews: pd.DataFrame) -> pd.DataFrame:
+    # 只用显式评分；3星丢弃
     exp = reviews.dropna(subset=["score"]).copy()
     exp = exp[(exp["score"] >= 4.0) | (exp["score"] <= 2.0)]
     exp["y"] = (exp["score"] >= 4.0).astype(int)
-    exp["weight"] = 1.0
     exp["label_source"] = "explicit_rating"
-    exp = exp[["user_id", "item_id", "ts", "y", "weight", "label_source", "score"]]
 
-    # 隐式行为：想看/看过 → 弱正样本；“未知”给很低权重(0.1)
-    imp = reviews[reviews["score"].isna()].copy()
+    # ---- 点赞数加权：1 + log1p(approvals_num) → 裁剪 → 归一 ----
+    a = exp["approvals_num"].fillna(0).astype(float)
+    w_raw = 1.0 + np.log1p(a)                     # 基础：对数缩放
+    cap = np.nanpercentile(w_raw, 99)             # 99分位裁剪（稳健）
+    w_cap = np.minimum(w_raw, cap)
 
-    imp["y"] = np.where(imp["user_status"].astype(str).str.contains("想看"), 1,
-                 np.where(imp["user_status"].astype(str).str.contains("看过"), 1,
-                     np.where(imp["user_status"].astype(str).str.contains("未知"), 1, np.nan)))
-    imp = imp.dropna(subset=["y"])
-    imp["weight"] = imp["user_status"].apply(_implicit_weight)
-    imp["label_source"] = "implicit_status"
-    imp["score"] = np.nan
-    imp = imp[["user_id", "item_id", "ts", "y", "weight", "label_source", "score"]]
+    mean_target = 1.0                              # 希望整体均值≈1（与原先一致）
+    w = w_cap / (np.nanmean(w_cap) + 1e-8) * mean_target
+    exp["weight"] = w.clip(0.1, None)             # 下限0.1，防止出现过小权重
 
-    # 合并 + 时间兜底 + 去重（保留最新）
-    df = pd.concat([exp, imp], ignore_index=True)
+    # 收尾：列选择与去重
+    df = exp[["user_id", "item_id", "ts", "y", "weight", "label_source", "score"]].copy()
     df["ts"] = pd.to_datetime(df["ts"], errors="coerce").fillna(pd.Timestamp("1970-01-01"))
     df = df.sort_values(["user_id", "item_id", "ts"]).drop_duplicates(["user_id", "item_id"], keep="last")
 
     df.to_csv(OUT_DIR / "interactions_gt.csv", index=False)
     print(f"[OK] {OUT_DIR/'interactions_gt.csv'} -> {len(df)} rows (pos={int((df.y==1).sum())}, neg={int((df.y==0).sum())})")
+    print("[INFO] weight stats:",
+          f"min={df['weight'].min():.3f}, p50={df['weight'].median():.3f}, "
+          f"mean={df['weight'].mean():.3f}, p95={df['weight'].quantile(0.95):.3f}, max={df['weight'].max():.3f}")
     return df
 
+
+
+
+
 #  时序切分（train/val/test）
-def step4_time_splits(interactions_gt: pd.DataFrame) -> pd.DataFrame:
+def time_splits(interactions_gt: pd.DataFrame) -> pd.DataFrame:
     """
     每个用户按时间排序：
       - 最后一个正样本 -> test
@@ -182,11 +246,8 @@ def step4_time_splits(interactions_gt: pd.DataFrame) -> pd.DataFrame:
     return df
 
 # 离线评测负采样（HR@K/NDCG@K）
-def step5_eval_samples(movies: pd.DataFrame, interactions: pd.DataFrame, K: int = 50) -> pd.DataFrame:
-    """
-    为每个 test 正样本采 K 个负例：
-      - 负例按 item 流行度做概率采样（pop^0.5），并过滤用户已看/正样本
-    """
+def eval_samples(movies: pd.DataFrame, interactions: pd.DataFrame, K: int = 50,
+                 item_quality_df: pd.DataFrame | None = None) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     all_items = movies["imdb_id"].astype(str).unique()
 
@@ -195,7 +256,16 @@ def step5_eval_samples(movies: pd.DataFrame, interactions: pd.DataFrame, K: int 
     pop = pd.Series(0.0, index=pd.Index(all_items, name="item_id"))
     pop.loc[item_pop.index] = item_pop.values
     pop = pop + 1.0
-    p = (pop ** 0.5)
+
+    # ——NEW：融合质量分（s_hat_5）——
+    if item_quality_df is not None and "s_hat_5" in item_quality_df.columns:
+        q = item_quality_df.set_index("item_id")["s_hat_5"].reindex(all_items).astype(float)
+        q = q.fillna(q.mean() if not np.isnan(q.mean()) else 2.5)  # 兜底
+        beta = 0.5  # 质量权重强度，可调：0~1 常用
+        p = (pop ** 0.5) * (np.maximum(q, 0.1) ** beta)
+    else:
+        p = (pop ** 0.5)
+
     p = p / p.sum()
 
     # 用户已看集合
@@ -208,7 +278,7 @@ def step5_eval_samples(movies: pd.DataFrame, interactions: pd.DataFrame, K: int 
         negs = [c for c in cand if c not in seen and c != pos_i][:K]
         if len(negs) < K:
             fill = [x for x in all_items if (x not in seen and x != pos_i)]
-            rng.shuffle(fill)
+            fill = rng.permutation(fill).tolist()  # ← 你已修正
             negs += fill[:(K - len(negs))]
         rows.append({"user_id": u, "pos_item_id": pos_i, **{f"neg_{i+1}": v for i, v in enumerate(negs)}})
 
@@ -217,23 +287,25 @@ def step5_eval_samples(movies: pd.DataFrame, interactions: pd.DataFrame, K: int 
     print(f"[OK] {OUT_DIR/'eval_samples.csv'} -> {len(eval_df)} cases, K={K}")
     return eval_df
 
+
 # main
 def main():
     print(f"[INFO] ROOT_DIR={ROOT_DIR}")
     print(f"[INFO] DATA_DIR={DATA_DIR}")
     print(f"[INFO] OUT_DIR ={OUT_DIR}")
 
-    movies, reviews = step1_load_clean()
-    item_quality = step2_item_quality(movies, C=80)
-    interactions = step3_interactions_gt(reviews)
-    interactions = step4_time_splits(interactions)
-    _ = step5_eval_samples(movies, interactions, K=50)
+    movies, reviews = load_clean()
+    item_quality_df = item_quality(movies, C=80)
+    inter_df = interactions_gt(reviews)
+    inter_df = time_splits(inter_df)
+    _ = eval_samples(movies, inter_df, K=50,item_quality_df=item_quality_df)
 
     # 小结
     print("\n[SUMMARY]")
     print(f"  movies      : {len(movies)}")
-    print(f"  interactions: {len(interactions)} (pos={int((interactions.y==1).sum())}, neg={int((interactions.y==0).sum())})")
-    print(f"  splits      : {interactions['split'].value_counts().to_dict()}")
+    print(f"  interactions: {len(inter_df)} (pos={int((inter_df.y==1).sum())}, neg={int((inter_df.y==0).sum())})")
+    print(f"  splits      : {inter_df['split'].value_counts().to_dict()}")
+
 
 if __name__ == "__main__":
     main()
