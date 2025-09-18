@@ -1,14 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-真值层流水线（适配项目结构）：
-- 读取：data/movies.csv, data/reviews_douban.csv
-- 产出：truth_value_out/ 下的 item_quality.csv, interactions_gt.csv, splits.csv, eval_samples.csv
-放置位置：algorithm/Truth_value.py
-运行方式（在项目根目录）：
-    python -m algorithm.Truth_value
-或：
-    python algorithm/Truth_value.py
-"""
+
 
 from __future__ import annotations
 import pandas as pd

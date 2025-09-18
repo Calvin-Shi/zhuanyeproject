@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 验证 Truth_value.py 全链路产物（Letterboxd 版本）
-在项目根目录运行：
-    python validate_truth_value_letterboxd.py
+
 会读取：
 - data/movies_letterdoxd_details_merged_v1.csv
 - data/reviews_letterdoxd_merged_v1.csv
@@ -33,14 +32,14 @@ OUT_SPLITS = OUT / "splits.csv"
 OUT_EVAL   = OUT / "eval_samples.csv"
 REPORT     = OUT / "validation_report.md"
 
-# ---------- utils ----------
+# utils
 def _read(path: Path) -> pd.DataFrame:
     try:
         return pd.read_csv(path, encoding="utf-8")
     except UnicodeDecodeError:
         return pd.read_csv(path, encoding="utf-8-sig")
 
-# ---------- 1) 基础一致性：键/去重/缺失 ----------
+#  基础一致性：键/去重/缺失
 def check_consistency(movies: pd.DataFrame, reviews: pd.DataFrame, itemq: pd.DataFrame) -> dict:
     res = {}
     # item_quality 的主键唯一性
@@ -67,7 +66,7 @@ def check_consistency(movies: pd.DataFrame, reviews: pd.DataFrame, itemq: pd.Dat
             res["unmatched_rows"] = None
     return res
 
-# ---------- 2) item_quality：平滑前后对比 ----------
+# item_quality：平滑前后对比
 def validate_item_quality(itemq: pd.DataFrame) -> dict:
     res = {}
     # 直接用 item_quality.csv 自带列
@@ -108,7 +107,7 @@ def validate_item_quality(itemq: pd.DataFrame) -> dict:
 
 
 
-# ---------- 3) interactions：标签/权重/唯一性 ----------
+#  interactions：标签/权重/唯一性
 def validate_interactions(inter: pd.DataFrame) -> dict:
     res = {}
     # 正负分布
@@ -134,7 +133,7 @@ def validate_interactions(inter: pd.DataFrame) -> dict:
     res["fig_weight_hist"] = str(p)
     return res
 
-# ---------- 4) splits：用户级留后一核验 ----------
+#  splits：用户级留后一核验
 def validate_splits(inter: pd.DataFrame) -> dict:
     res = {}
     res["split_counts"] = inter["split"].value_counts().to_dict()
@@ -163,7 +162,7 @@ def validate_splits(inter: pd.DataFrame) -> dict:
     res["fig_splits_pie"] = str(p)
     return res
 
-# ---------- 5) eval_samples：覆盖率/违规/负样本分布 ----------
+# eval_samples：覆盖率/违规/负样本分布
 def validate_eval(inter: pd.DataFrame, evaldf: pd.DataFrame) -> dict:
     res = {}
     # test 正样本集合
@@ -211,7 +210,7 @@ def validate_eval(inter: pd.DataFrame, evaldf: pd.DataFrame) -> dict:
     return res
 
 
-# ---------- report ----------
+#  report
 
 def write_report(sections: dict):
     lines = []
